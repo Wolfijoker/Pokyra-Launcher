@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Récupération du code
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Configuration de Node.js
         uses: actions/setup-node@v4
@@ -40,9 +42,10 @@ jobs:
         with:
           files: |
             dist/Pokyra-Setup.exe
-          tag_name: ${{ github.ref_name || 'latest' }}
-          name: Pokyra Launcher ${{ github.ref_name || 'Dernière Version' }}
+          tag_name: latest
+          name: Pokyra Launcher - Dernière Version
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
