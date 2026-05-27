@@ -596,3 +596,57 @@ body {
     cursor: not-allowed;
     transform: none !important;
 }
+
+/* BARRE DE RÉSEAUX SOCIAUX DANS LA CARTE DROITE */
+.social-dock {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.social-btn {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: var(--transition-snappy);
+    outline: none;
+}
+
+.social-btn:hover {
+    color: var(--text-primary);
+    transform: translateY(-2px);
+}
+
+.social-btn.btn-website:hover {
+    border-color: var(--color-cyan);
+    box-shadow: 0 0 10px var(--color-cyan-glow);
+    color: var(--color-cyan);
+}
+
+.social-btn.btn-discord:hover {
+    border-color: #5865F2;
+    box-shadow: 0 0 10px rgba(88, 101, 242, 0.25);
+    color: #5865F2;
+}
+
+.social-btn.btn-instagram:hover {
+    border-color: #E1306C;
+    box-shadow: 0 0 10px rgba(225, 48, 108, 0.25);
+    color: #E1306C;
+}
+
+.social-btn.btn-tiktok:hover {
+    border-color: #FE2C55;
+    box-shadow: 0 0 10px rgba(254, 44, 85, 0.25);
+    color: #FE2C55;
+}

@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initWindowControls();
     initOfflineForm();
     initServerStatus();
+    initSocialLinks();
 });
 
 // ---------------------------------------------------------
@@ -99,6 +100,25 @@ async function initServerStatus() {
     } catch (e) {
         playerCountText.textContent = " play.pokyra.fr";
     }
+}
+
+// ---------------------------------------------------------
+// RÉSEAUX SOCIAUX & LIENS EXTERNES
+// ---------------------------------------------------------
+function initSocialLinks() {
+    const socialButtons = document.querySelectorAll('.social-btn');
+    socialButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = btn.getAttribute('data-url');
+            if (url && url !== "#") {
+                const { shell } = require('electron');
+                shell.openExternal(url);
+            } else {
+                showFeedback("Ce réseau social sera bientôt disponible !", "info");
+            }
+        });
+    });
 }
 
 // ---------------------------------------------------------
