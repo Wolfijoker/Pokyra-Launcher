@@ -29,7 +29,9 @@ function createWindow() {
     // Affichage propre une fois le contenu chargé
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
-        mainWindow.webContents.openDevTools({ mode: 'detach' });
+        if (!app.isPackaged) {
+            mainWindow.webContents.openDevTools({ mode: 'detach' });
+        }
     });
 
     mainWindow.on('closed', () => {
