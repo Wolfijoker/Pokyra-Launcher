@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokyra Launcher ⚡</title>
+    
+    <!-- Polices & Icônes (Google Fonts & FontAwesome) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Styles CSS Custom -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Conteneur global du Launcher (look sans bordures système) -->
+    <div class="launcher-window">
+        
+        <!-- Barre de titre personnalisée déplaçable (Drag region) -->
+        <header class="custom-titlebar">
+            <div class="titlebar-logo">
+                <svg class="logo-svg" viewBox="0 0 100 100" width="24" height="24">
+                    <defs>
+                        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="hsl(222, 25%, 16%)" />
+                            <stop offset="100%" stop-color="hsl(222, 30%, 8%)" />
+                        </linearGradient>
+                        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="hsl(38, 92%, 60%)" />
+                            <stop offset="100%" stop-color="hsl(38, 92%, 45%)" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M 50 10 L 80 22 L 75 60 L 50 85 L 25 60 L 20 22 Z" fill="url(#shieldGrad)" stroke="hsl(199, 85%, 48%)" stroke-width="5.5" />
+                    <path d="M 55 22 L 38 50 L 50 50 L 45 70 L 62 42 L 50 42 Z" fill="url(#goldGrad)" />
+                </svg>
+                <span class="logo-text"><span class="accent-gold">POK</span>YRA</span>
+            </div>
+            
+            <!-- Contrôles système (Réduire / Fermer) -->
+            <div class="titlebar-controls">
+                <button class="control-btn" id="btn-minimize" title="Réduire"><i class="fa-solid fa-minus"></i></button>
+                <button class="control-btn close-hover" id="btn-close" title="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </header>
+
+        <!-- Zone principale de contenu -->
+        <main class="launcher-content">
+            <div class="launcher-layout">
+                
+                <!-- CÔTÉ GAUCHE : CONNEXION & LOGIQUE -->
+                <div class="content-left">
+                    <h1 class="welcome-title">Bienvenue sur <span class="text-gradient-gold">Pokyra</span></h1>
+                    <p class="welcome-subtitle">Connectez-vous pour lancer votre aventure Pixelmon.</p>
+                    
+                    <!-- Formulaire de Connexion Unique (Offline/Pseudo) -->
+                    <div class="auth-forms-container">
+                        <div class="auth-form" id="form-offline">
+                            <p class="form-help-text">Choisissez le pseudo de votre choix pour rejoindre le serveur Pokyra. Si c'est votre première connexion, vous devrez définir un mot de passe en jeu avec la commande <code>/register &lt;motdepasse&gt; &lt;motdepasse&gt;</code>.</p>
+                            <div class="input-field-group">
+                                <label for="offline-username-input" class="field-label">PSEUDO EN JEU</label>
+                                <div class="input-wrapper">
+                                    <i class="fa-regular fa-user field-icon"></i>
+                                    <input type="text" id="offline-username-input" class="text-input" placeholder="Ex: Sacha" maxlength="16">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notification / Message de retour -->
+                    <div class="feedback-notification hidden" id="feedback-box">
+                        <i class="fa-solid fa-circle-info feedback-icon"></i>
+                        <span class="feedback-text" id="feedback-text">Message</span>
+                    </div>
+                </div>
+
+                <!-- CÔTÉ DROIT : CARTE EMBLEM DE BRANDING -->
+                <div class="content-right">
+                    <div class="glowing-mesh-background"></div>
+                    <div class="logo-display-card">
+                        <img src="../assets/logo.png" alt="Pokyra Logo" class="brand-esports-logo">
+                        <div class="brand-divider"></div>
+                        <div class="server-status-badge">
+                            <span class="status-indicator"></span>
+                            <span id="player-count-text">Connexion au serveur...</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Section Basse : Barre de chargement & Bouton JOUER -->
+        <footer class="launcher-footer">
+            <div class="footer-layout limit-width">
+                <!-- Zone de progression à gauche -->
+                <div class="progress-section">
+                    <div class="progress-labels">
+                        <span class="progress-status-label" id="progress-state">Prêt à lancer</span>
+                        <span class="progress-percentage-label" id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+                
+                <!-- Gros Bouton d'action de jeu à droite -->
+                <div class="action-section">
+                    <button class="btn-play-action disabled" id="btn-play" aria-label="Lancer le jeu">
+                        <i class="fa-solid fa-play"></i> JOUER
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Script JavaScript Principal -->
+    <script src="app.js"></script>
+</body>
+</html>

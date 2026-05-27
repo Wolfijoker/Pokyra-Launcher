@@ -1,0 +1,48 @@
+name: Pokyra Launcher - Compilateur Automatique
+
+on:
+  push:
+    tags:
+      - 'v*' # Se déclenche lorsque vous créez une version taguée (ex: v1.0.0)
+  workflow_dispatch: # Permet de lancer la compilation manuellement depuis l'interface GitHub !
+
+permissions:
+  contents: write # Autorisation requise pour créer et uploader la release sur GitHub
+
+jobs:
+  build-windows:
+    name: Compilation Windows (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Configuration de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: package-lock.json # Il est maintenant à la racine du dépôt launcher !
+
+      - name: Installation des dépendances du Launcher
+        run: |
+          npm install
+
+      - name: Compilation du Launcher (Windows Installer)
+        run: |
+          npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Création de la Release GitHub & Upload de l'installateur
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Pokyra-Setup.exe
+          tag_name: ${{ github.ref_name || 'latest' }}
+          name: Pokyra Launcher ${{ github.ref_name || 'Dernière Version' }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,46 @@
+{
+  "name": "pokyra-launcher",
+  "version": "1.0.0",
+  "description": "Launcher officiel ultra-premium pour le serveur Pixelmon Pokyra",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "minecraft",
+    "pixelmon",
+    "launcher",
+    "electron"
+  ],
+  "author": "Pokyra",
+  "license": "ISC",
+  "dependencies": {
+    "minecraft-launcher-core": "*",
+    "msmc": "*"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.pokyra.launcher",
+    "productName": "Pokyra",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png",
+      "artifactName": "Pokyra-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Pokyra",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "files": [
+      "**/*",
+      "!dist"
+    ]
+  }
+}

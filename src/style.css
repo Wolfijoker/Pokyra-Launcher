@@ -1,0 +1,598 @@
+/* 
+   Charte Graphique du Launcher de POKYRA
+   Esthétique E-sport : Or Ambré Prestige & Steel-Teal Profond.
+   Interfaces sans bordures (frameless) déplaçables.
+*/
+
+:root {
+    /* Couleurs de fond */
+    --bg-deep: hsl(222, 28%, 7%);
+    --bg-slate-900: hsl(222, 26%, 10%);
+    --bg-slate-800: hsl(222, 20%, 14%);
+    --bg-glass: rgba(10, 18, 36, 0.65);
+    
+    /* Couleurs d'accentuation */
+    --color-cyan: hsl(199, 85%, 48%);
+    --color-cyan-glow: hsla(199, 85%, 48%, 0.25);
+    --color-yellow: hsl(38, 92%, 52%);
+    --color-yellow-glow: hsla(38, 92%, 52%, 0.25);
+    --color-accent-blue: hsl(212, 100%, 45%);
+    
+    /* Couleurs de texte */
+    --text-primary: hsl(210, 30%, 98%);
+    --text-secondary: hsl(215, 18%, 80%);
+    --text-muted: hsl(215, 12%, 58%);
+    
+    /* Bordures & Ombres */
+    --border-glass: rgba(255, 255, 255, 0.06);
+    --border-glass-hover: rgba(255, 255, 255, 0.12);
+    
+    --shadow-main: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+    --shadow-cyan: 0 0 25px 0 hsla(199, 85%, 48%, 0.25);
+    --shadow-yellow: 0 0 25px 0 hsla(38, 92%, 52%, 0.25);
+    
+    /* Polices */
+    --font-heading: 'Outfit', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --transition-snappy: all 0.15s ease-out;
+}
+
+/* ---------------------------------------------------------
+   RESETS & CONFIGURATION GLOBALE
+   --------------------------------------------------------- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none; /* Évite de sélectionner le texte accidentellement sur le launcher */
+}
+
+body {
+    background: transparent; /* Permet la transparence des coins arrondis */
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Conteneur principal avec coins arrondis et bordure fine en or */
+.launcher-window {
+    width: 900px;
+    height: 550px;
+    background-color: var(--bg-deep);
+    border-radius: 12px;
+    border: 1px solid var(--border-glass);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-main);
+    overflow: hidden;
+    position: relative;
+}
+
+/* ---------------------------------------------------------
+   BARRE DE TITRE SANS BORDURES (TITLEBAR)
+   --------------------------------------------------------- */
+.custom-titlebar {
+    height: 48px;
+    background-color: var(--bg-slate-900);
+    border-bottom: 1px solid var(--border-glass);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    -webkit-app-region: drag; /* Rend la zone déplaçable sur Windows/Mac */
+}
+
+.titlebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: 0.5px;
+}
+
+.logo-svg {
+    filter: drop-shadow(0 0 4px var(--color-cyan-glow));
+}
+
+.accent-gold {
+    color: var(--color-yellow);
+}
+
+.titlebar-controls {
+    display: flex;
+    gap: 4px;
+    -webkit-app-region: no-drag; /* Permet aux boutons d'être cliquables */
+}
+
+.control-btn {
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: var(--transition-snappy);
+}
+
+.control-btn:hover {
+    background-color: var(--bg-slate-800);
+    color: var(--text-primary);
+}
+
+.close-hover:hover {
+    background-color: hsl(0, 72%, 50%) !important;
+    color: white !important;
+}
+
+/* ---------------------------------------------------------
+   ZONE DE CONTENU DE L'APPLICATION
+   --------------------------------------------------------- */
+.launcher-content {
+    flex-grow: 1;
+    background: radial-gradient(circle at 10% 10%, hsl(222, 28%, 10%), var(--bg-deep) 60%);
+    padding: 36px 40px;
+}
+
+.launcher-layout {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 40px;
+    height: 100%;
+    align-items: center;
+}
+
+/* CÔTÉ GAUCHE : CONNEXION & LOGIQUE */
+.content-left {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+}
+
+.welcome-title {
+    font-family: var(--font-heading);
+    font-size: 1.95rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+}
+
+.text-gradient-gold {
+    background: linear-gradient(135deg, var(--color-yellow), hsl(25, 90%, 50%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.welcome-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+}
+
+/* TABS D'AUTHENTIFICATION */
+.auth-tabs {
+    display: flex;
+    background: var(--bg-slate-900);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 24px;
+}
+
+.auth-tab {
+    flex-grow: 1;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition-snappy);
+}
+
+.auth-tab:hover {
+    color: var(--text-primary);
+}
+
+.auth-tab.active {
+    background-color: var(--bg-slate-800);
+    color: var(--text-primary);
+    border: 1px solid var(--border-glass);
+}
+
+/* CONTENEURS DES FORMULAIRES */
+.auth-forms-container {
+    min-height: 120px;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.auth-form.hidden {
+    display: none !important;
+}
+
+.form-help-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* BOUTON MICROSOFT CONNECT */
+.btn-microsoft-auth {
+    background: #00A4EF; /* Couleur officielle Microsoft */
+    color: white;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(0, 164, 239, 0.25);
+    transition: var(--transition-smooth);
+    width: 100%;
+}
+
+.btn-microsoft-auth:hover {
+    background: #008ccb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 25px rgba(0, 164, 239, 0.45);
+}
+
+/* PROFIL CONNECTÉ */
+.logged-in-profile {
+    display: flex;
+    align-items: center;
+    background: var(--bg-slate-900);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 12px 16px;
+    gap: 16px;
+    position: relative;
+}
+
+.logged-in-profile.hidden {
+    display: none !important;
+}
+
+.avatar-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-glass);
+    background-color: var(--bg-slate-800);
+}
+
+.player-head {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated; /* Garde le look Minecraft pixélisé net */
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.profile-username {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.profile-status {
+    font-size: 0.75rem;
+    color: var(--color-cyan);
+    font-weight: 600;
+}
+
+.logout-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: var(--transition-snappy);
+    padding: 8px;
+}
+
+.logout-btn:hover {
+    color: hsl(0, 72%, 50%);
+}
+
+/* CHAMP DE SAISIE CRACK */
+.input-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.field-icon {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.text-input {
+    width: 100%;
+    background-color: var(--bg-slate-900);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 12px 14px 12px 42px;
+    outline: none;
+    transition: var(--transition-snappy);
+}
+
+.text-input:focus {
+    border-color: var(--color-cyan);
+    box-shadow: 0 0 10px var(--color-cyan-glow);
+}
+
+/* BOX NOTIFICATION */
+.feedback-notification {
+    background: rgba(6, 182, 212, 0.06);
+    border: 1px solid var(--color-cyan-glow);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+    animation: fadeIn 0.3s ease;
+}
+
+.feedback-notification.hidden {
+    display: none !important;
+}
+
+.feedback-icon {
+    color: var(--color-cyan);
+    font-size: 0.9rem;
+}
+
+.feedback-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* CÔTÉ DROIT : CARTE EMBLEM DE BRANDING */
+.content-right {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    height: 100%;
+}
+
+.glowing-mesh-background {
+    position: absolute;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, var(--color-yellow-glow) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(40px);
+    z-index: 1;
+}
+
+.logo-display-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 30px;
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: var(--shadow-main);
+    z-index: 2;
+    transition: var(--transition-smooth);
+}
+
+.logo-display-card:hover {
+    border-color: var(--color-yellow);
+    transform: scale(1.02);
+}
+
+.brand-esports-logo {
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.4));
+}
+
+.brand-divider {
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-cyan), var(--color-yellow));
+    margin: 20px 0;
+    border-radius: 1px;
+}
+
+.server-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-glass);
+    padding: 6px 14px;
+    border-radius: 10px;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-cyan);
+    animation: statusPulse 1.8s infinite;
+}
+
+#player-count-text {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+@keyframes statusPulse {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+/* ---------------------------------------------------------
+   SECTION BASSE : BARRE DE CHARGEMENT & BOUTON JOUER
+   --------------------------------------------------------- */
+.launcher-footer {
+    height: 100px;
+    background-color: var(--bg-slate-900);
+    border-top: 1px solid var(--border-glass);
+    display: flex;
+    align-items: center;
+}
+
+.footer-layout {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+}
+
+.progress-section {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress-state-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.progress-percentage-label {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--color-yellow);
+}
+
+.progress-bar-container {
+    height: 8px;
+    background-color: var(--bg-deep);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border-glass);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-cyan), var(--color-yellow));
+    border-radius: 4px;
+    transition: width 0.15s ease-out;
+}
+
+/* GROS BOUTON D'ACTION DE JEU (JOUER) */
+.action-section {
+    flex-shrink: 0;
+}
+
+.btn-play-action {
+    background: linear-gradient(135deg, var(--color-yellow), hsl(32, 95%, 45%));
+    color: hsl(222, 35%, 5%);
+    border: none;
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 14px 48px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-yellow);
+    transition: var(--transition-smooth);
+    min-width: 200px;
+}
+
+.btn-play-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px 0 hsla(38, 92%, 52%, 0.5);
+}
+
+/* État désactivé (quand on n'est pas connecté) */
+.btn-play-action.disabled {
+    background: var(--bg-slate-800);
+    color: var(--text-muted);
+    border: 1px solid var(--border-glass);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none !important;
+}
