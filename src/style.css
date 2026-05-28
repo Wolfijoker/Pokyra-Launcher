@@ -47,11 +47,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    user-select: none; /* Évite de sélectionner le texte accidentellement sur le launcher */
+    user-select: none;
 }
 
 body {
-    background: transparent; /* Permet la transparence des coins arrondis */
+    background: transparent;
     color: var(--text-primary);
     font-family: var(--font-body);
     overflow: hidden;
@@ -61,7 +61,7 @@ body {
     align-items: center;
 }
 
-/* Conteneur principal avec coins arrondis et bordure fine en or */
+/* Conteneur principal avec coins arrondis */
 .launcher-window {
     width: 900px;
     height: 550px;
@@ -86,7 +86,10 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 0 16px;
-    -webkit-app-region: drag; /* Rend la zone déplaçable sur Windows/Mac */
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+    z-index: 200;
+    position: relative;
 }
 
 .titlebar-logo {
@@ -110,7 +113,7 @@ body {
 .titlebar-controls {
     display: flex;
     gap: 4px;
-    -webkit-app-region: no-drag; /* Permet aux boutons d'être cliquables */
+    -webkit-app-region: no-drag;
 }
 
 .control-btn {
@@ -136,6 +139,466 @@ body {
 .close-hover:hover {
     background-color: hsl(0, 72%, 50%) !important;
     color: white !important;
+}
+
+/* Bouton Paramètres (engrenage) */
+.settings-btn {
+    margin-right: 6px;
+}
+
+.settings-btn:hover {
+    color: var(--color-yellow) !important;
+    background-color: rgba(251, 191, 36, 0.08) !important;
+}
+
+.settings-btn.active {
+    color: var(--color-yellow) !important;
+    background-color: rgba(251, 191, 36, 0.12) !important;
+    animation: spinGear 0.4s ease-out;
+}
+
+@keyframes spinGear {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(90deg); }
+}
+
+/* ---------------------------------------------------------
+   PANNEAU PARAMÈTRES - OVERLAY GLASSMORPHISM
+   --------------------------------------------------------- */
+.settings-overlay {
+    position: absolute;
+    top: 48px; /* juste sous la titlebar */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 48px);
+    background: rgba(5, 10, 22, 0.82);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    z-index: 150;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.settings-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.98);
+}
+
+.settings-panel {
+    background: linear-gradient(145deg, hsl(222, 28%, 11%), hsl(222, 26%, 9%));
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 16px;
+    width: 580px;
+    max-height: 460px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    overflow: hidden;
+}
+
+/* En-tête du panneau */
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-glass);
+    background: rgba(255, 255, 255, 0.02);
+    flex-shrink: 0;
+}
+
+.settings-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-title-icon {
+    font-size: 1.1rem;
+    color: var(--color-yellow);
+}
+
+.settings-title {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+
+.settings-close-btn {
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-snappy);
+}
+
+.settings-close-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: hsl(0, 72%, 50%);
+    color: hsl(0, 72%, 65%);
+}
+
+/* Corps du panneau */
+.settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-glass-hover) transparent;
+}
+
+.settings-body::-webkit-scrollbar {
+    width: 4px;
+}
+.settings-body::-webkit-scrollbar-track { background: transparent; }
+.settings-body::-webkit-scrollbar-thumb {
+    background: var(--border-glass-hover);
+    border-radius: 2px;
+}
+
+/* Sections du panneau */
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.settings-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-icon {
+    font-size: 0.9rem;
+}
+
+.icon-cyan { color: var(--color-cyan); }
+.icon-gold { color: var(--color-yellow); }
+
+.settings-section-title {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.settings-divider {
+    height: 1px;
+    background: var(--border-glass);
+    margin: 6px 0;
+}
+
+/* ---------------------------------------------------------
+   SLIDER RAM
+   --------------------------------------------------------- */
+.ram-slider-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.ram-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ram-label {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.ram-value-badge {
+    background: linear-gradient(135deg, var(--color-yellow), hsl(32, 95%, 45%));
+    color: hsl(222, 35%, 5%);
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 0.85rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Slider personnalisé */
+.ram-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--bg-deep);
+    border-radius: 3px;
+    outline: none;
+    border: 1px solid var(--border-glass);
+    cursor: pointer;
+}
+
+.ram-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-yellow), hsl(32, 95%, 45%));
+    cursor: pointer;
+    box-shadow: 0 0 12px var(--color-yellow-glow);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.ram-slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 20px hsla(38, 92%, 52%, 0.5);
+    transform: scale(1.15);
+}
+
+/* Labels positionnés selon la vraie position sur l'axe 2-16 */
+.ram-range-labels {
+    position: relative;
+    height: 16px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.ram-range-labels span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+/* 2 Go = (2-2)/(16-2) = 0% */
+.ram-range-labels span:nth-child(1) { left: 0%; transform: none; }
+/* 4 Go = (4-2)/(16-2) = 14.3% */
+.ram-range-labels span:nth-child(2) { left: 14.3%; }
+/* 8 Go = (8-2)/(16-2) = 42.9% */
+.ram-range-labels span:nth-child(3) { left: 42.9%; }
+/* 12 Go = (12-2)/(16-2) = 71.4% */
+.ram-range-labels span:nth-child(4) { left: 71.4%; }
+/* 16 Go = (16-2)/(16-2) = 100% */
+.ram-range-labels span:nth-child(5) { left: 100%; transform: translateX(-100%); }
+
+.settings-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+.settings-hint i { color: var(--color-cyan); }
+
+/* ---------------------------------------------------------
+   TOGGLE SWITCH (SCHEMATICA)
+   --------------------------------------------------------- */
+.mod-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: border-color 0.2s ease;
+}
+
+.mod-toggle-row:hover {
+    border-color: var(--border-glass-hover);
+}
+
+.mod-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.mod-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mod-name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.mod-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    background: rgba(6, 182, 212, 0.12);
+    color: var(--color-cyan);
+    border: 1px solid rgba(6, 182, 212, 0.25);
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.mod-description {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Toggle switch iOS-style */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-track {
+    display: block;
+    width: 46px;
+    height: 26px;
+    background: hsl(222, 20%, 18%);
+    border: 1px solid var(--border-glass);
+    border-radius: 13px;
+    transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    position: relative;
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.toggle-switch input:checked + .toggle-track {
+    background: linear-gradient(135deg, hsl(142, 60%, 28%), hsl(142, 60%, 22%));
+    border-color: hsl(142, 60%, 40%);
+    box-shadow: 0 0 12px hsla(142, 70%, 45%, 0.3);
+}
+
+.toggle-switch input:checked + .toggle-track .toggle-thumb {
+    transform: translateX(20px);
+    background: hsl(142, 70%, 55%);
+}
+
+/* ---------------------------------------------------------
+   ACCÈS RAPIDE
+   --------------------------------------------------------- */
+.quick-access-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.quick-access-btn {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    padding: 12px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 0.78rem;
+    transition: var(--transition-snappy);
+    text-align: center;
+}
+
+.quick-access-btn i {
+    font-size: 1.3rem;
+    color: var(--color-cyan);
+}
+
+.quick-access-btn .quick-access-sub {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.quick-access-btn:hover {
+    background: rgba(6, 182, 212, 0.06);
+    border-color: rgba(6, 182, 212, 0.25);
+    color: var(--text-primary);
+    transform: translateY(-2px);
+}
+
+/* ---------------------------------------------------------
+   FOOTER DU PANNEAU
+   --------------------------------------------------------- */
+.settings-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    border-top: 1px solid var(--border-glass);
+    background: rgba(255,255,255,0.01);
+    flex-shrink: 0;
+}
+
+.settings-version-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.btn-save-settings {
+    background: linear-gradient(135deg, var(--color-yellow), hsl(32, 95%, 45%));
+    color: hsl(222, 35%, 5%);
+    border: none;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 0.82rem;
+    padding: 9px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: var(--transition-smooth);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+}
+
+.btn-save-settings:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.35);
 }
 
 /* ---------------------------------------------------------
@@ -183,45 +646,6 @@ body {
     margin-bottom: 28px;
 }
 
-/* TABS D'AUTHENTIFICATION */
-.auth-tabs {
-    display: flex;
-    background: var(--bg-slate-900);
-    border: 1px solid var(--border-glass);
-    border-radius: 8px;
-    padding: 4px;
-    gap: 4px;
-    margin-bottom: 24px;
-}
-
-.auth-tab {
-    flex-grow: 1;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 0.85rem;
-    padding: 10px 14px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    transition: var(--transition-snappy);
-}
-
-.auth-tab:hover {
-    color: var(--text-primary);
-}
-
-.auth-tab.active {
-    background-color: var(--bg-slate-800);
-    color: var(--text-primary);
-    border: 1px solid var(--border-glass);
-}
-
 /* CONTENEURS DES FORMULAIRES */
 .auth-forms-container {
     min-height: 120px;
@@ -233,107 +657,13 @@ body {
     gap: 16px;
 }
 
-.auth-form.hidden {
-    display: none !important;
-}
-
 .form-help-text {
     font-size: 0.8rem;
     color: var(--text-muted);
     line-height: 1.4;
 }
 
-/* BOUTON MICROSOFT CONNECT */
-.btn-microsoft-auth {
-    background: #00A4EF; /* Couleur officielle Microsoft */
-    color: white;
-    font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 0.95rem;
-    border: none;
-    border-radius: 8px;
-    padding: 14px 20px;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 4px 15px rgba(0, 164, 239, 0.25);
-    transition: var(--transition-smooth);
-    width: 100%;
-}
-
-.btn-microsoft-auth:hover {
-    background: #008ccb;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 25px rgba(0, 164, 239, 0.45);
-}
-
-/* PROFIL CONNECTÉ */
-.logged-in-profile {
-    display: flex;
-    align-items: center;
-    background: var(--bg-slate-900);
-    border: 1px solid var(--border-glass);
-    border-radius: 10px;
-    padding: 12px 16px;
-    gap: 16px;
-    position: relative;
-}
-
-.logged-in-profile.hidden {
-    display: none !important;
-}
-
-.avatar-box {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--border-glass);
-    background-color: var(--bg-slate-800);
-}
-
-.player-head {
-    width: 100%;
-    height: 100%;
-    image-rendering: pixelated; /* Garde le look Minecraft pixélisé net */
-}
-
-.profile-info {
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-}
-
-.profile-username {
-    font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--text-primary);
-}
-
-.profile-status {
-    font-size: 0.75rem;
-    color: var(--color-cyan);
-    font-weight: 600;
-}
-
-.logout-btn {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: var(--transition-snappy);
-    padding: 8px;
-}
-
-.logout-btn:hover {
-    color: hsl(0, 72%, 50%);
-}
-
-/* CHAMP DE SAISIE CRACK */
+/* CHAMP DE SAISIE */
 .input-field-group {
     display: flex;
     flex-direction: column;
@@ -388,7 +718,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 14px;
     animation: fadeIn 0.3s ease;
 }
 
@@ -412,7 +742,38 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* CÔTÉ DROIT : CARTE EMBLEM DE BRANDING */
+/* BADGES DE CONFIG ACTIVE */
+.active-config-badges {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}
+
+.config-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.2);
+    color: var(--color-cyan);
+    transition: var(--transition-snappy);
+}
+
+.config-badge i { font-size: 0.65rem; }
+
+.config-badge-off {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--border-glass);
+    color: var(--text-muted);
+}
+
+/* CÔTÉ DROIT : CARTE EMBLEM */
 .content-right {
     display: flex;
     justify-content: center;
@@ -501,26 +862,29 @@ body {
    SECTION BASSE : BARRE DE CHARGEMENT & BOUTON JOUER
    --------------------------------------------------------- */
 .launcher-footer {
-    height: 100px;
+    height: 88px;
     background-color: var(--bg-slate-900);
     border-top: 1px solid var(--border-glass);
     display: flex;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .footer-layout {
     display: flex;
     width: 100%;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 40px;
+    padding: 10px 40px 8px 40px;
 }
 
 .progress-section {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    min-width: 0;
 }
 
 .progress-labels {
@@ -529,7 +893,7 @@ body {
     align-items: center;
 }
 
-.progress-state-label {
+.progress-status-label {
     font-size: 0.8rem;
     font-weight: 700;
     color: var(--text-secondary);
@@ -543,18 +907,28 @@ body {
 }
 
 .progress-bar-container {
-    height: 8px;
-    background-color: var(--bg-deep);
-    border-radius: 4px;
+    height: 12px;
+    width: 100%;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
     overflow: hidden;
-    border: 1px solid var(--border-glass);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.15);
+    position: relative;
+    opacity: 1;
+    visibility: visible;
 }
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--color-cyan), var(--color-yellow));
-    border-radius: 4px;
+    display: block;
+    width: 0%;
+    min-width: 0;
+    background: linear-gradient(90deg, #00e5ff 0%, #18c6ff 40%, #ffd24a 100%);
+    border-radius: 999px;
     transition: width 0.15s ease-out;
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.85), 0 0 14px rgba(255, 210, 74, 0.75);
 }
 
 /* GROS BOUTON D'ACTION DE JEU (JOUER) */
@@ -587,7 +961,6 @@ body {
     box-shadow: 0 0 30px 0 hsla(38, 92%, 52%, 0.5);
 }
 
-/* État désactivé (quand on n'est pas connecté) */
 .btn-play-action.disabled {
     background: var(--bg-slate-800);
     color: var(--text-muted);
@@ -597,7 +970,7 @@ body {
     transform: none !important;
 }
 
-/* BARRE DE RÉSEAUX SOCIAUX DANS LA CARTE DROITE */
+/* BARRE DE RÉSEAUX SOCIAUX */
 .social-dock {
     display: flex;
     justify-content: center;

@@ -5,21 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokyra Launcher ⚡</title>
     
-    <!-- Polices & Icônes (Google Fonts & FontAwesome) -->
+    <!-- Polices & Icônes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Styles CSS Custom -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Conteneur global du Launcher (look sans bordures système) -->
+    <!-- Conteneur global du Launcher -->
     <div class="launcher-window">
         
-        <!-- Barre de titre personnalisée déplaçable (Drag region) -->
+        <!-- Barre de titre personnalisée déplaçable -->
         <header class="custom-titlebar">
             <div class="titlebar-logo">
                 <svg class="logo-svg" viewBox="0 0 100 100" width="24" height="24">
@@ -39,12 +38,129 @@
                 <span class="logo-text"><span class="accent-gold">POK</span>YRA</span>
             </div>
             
-            <!-- Contrôles système (Réduire / Fermer) -->
+            <!-- Contrôles système -->
             <div class="titlebar-controls">
-                <button class="control-btn" id="btn-minimize" title="Réduire"><i class="fa-solid fa-minus"></i></button>
-                <button class="control-btn close-hover" id="btn-close" title="Fermer"><i class="fa-solid fa-xmark"></i></button>
+                <button class="control-btn settings-btn" id="btn-settings" title="Paramètres">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button class="control-btn" id="btn-minimize" title="Réduire">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button class="control-btn close-hover" id="btn-close" title="Fermer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </header>
+
+        <!-- ======================================== -->
+        <!-- MODALE PARAMÈTRES (SETTINGS OVERLAY)     -->
+        <!-- ======================================== -->
+        <div class="settings-overlay hidden" id="settings-overlay">
+            <div class="settings-panel">
+                <!-- En-tête du panneau -->
+                <div class="settings-header">
+                    <div class="settings-title-group">
+                        <i class="fa-solid fa-sliders settings-title-icon"></i>
+                        <h2 class="settings-title">Paramètres du Launcher</h2>
+                    </div>
+                    <button class="settings-close-btn" id="btn-settings-close" title="Fermer les paramètres">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Contenu du panneau -->
+                <div class="settings-body">
+
+                    <!-- Section RAM -->
+                    <div class="settings-section">
+                        <div class="settings-section-header">
+                            <i class="fa-solid fa-memory section-icon icon-cyan"></i>
+                            <span class="settings-section-title">Mémoire vive allouée</span>
+                        </div>
+                        <div class="ram-slider-container">
+                            <div class="ram-display">
+                                <span class="ram-label">RAM Allouée</span>
+                                <span class="ram-value-badge" id="ram-display-value">4 Go</span>
+                            </div>
+                            <input type="range" id="ram-slider" class="ram-slider" min="2" max="16" step="1" value="4">
+                            <div class="ram-range-labels">
+                                <span>2 Go</span>
+                                <span>4 Go</span>
+                                <span>8 Go</span>
+                                <span>12 Go</span>
+                                <span>16 Go</span>
+                            </div>
+                            <p class="settings-hint"><i class="fa-solid fa-circle-info"></i> Recommandé : 4 Go pour Pixelmon. Augmentez si vous avez des ralentissements.</p>
+                        </div>
+                    </div>
+
+                    <!-- Séparateur -->
+                    <div class="settings-divider"></div>
+
+                    <!-- Section Mods Optionnels -->
+                    <div class="settings-section">
+                        <div class="settings-section-header">
+                            <i class="fa-solid fa-puzzle-piece section-icon icon-gold"></i>
+                            <span class="settings-section-title">Mods optionnels</span>
+                        </div>
+
+                        <!-- Toggle Schematica -->
+                        <div class="mod-toggle-row">
+                            <div class="mod-info">
+                                <div class="mod-name-row">
+                                    <span class="mod-name">Schematica</span>
+                                    <span class="mod-badge">1.12.2</span>
+                                </div>
+                                <p class="mod-description">Importe et visualise des schémas de construction directement en jeu. Nécessite LunatriusCore (installé automatiquement).</p>
+                            </div>
+                            <label class="toggle-switch" for="toggle-schematica" title="Activer / Désactiver Schematica">
+                                <input type="checkbox" id="toggle-schematica">
+                                <span class="toggle-track">
+                                    <span class="toggle-thumb"></span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Séparateur -->
+                    <div class="settings-divider"></div>
+
+                    <!-- Section Accès Rapide -->
+                    <div class="settings-section">
+                        <div class="settings-section-header">
+                            <i class="fa-solid fa-folder-open section-icon icon-cyan"></i>
+                            <span class="settings-section-title">Accès Rapide</span>
+                        </div>
+                        <div class="quick-access-grid">
+                            <button class="quick-access-btn" id="btn-open-game-folder">
+                                <i class="fa-solid fa-folder"></i>
+                                <span>Dossier du Jeu</span>
+                                <span class="quick-access-sub">.pokyra</span>
+                            </button>
+                            <button class="quick-access-btn" id="btn-open-mods-folder">
+                                <i class="fa-solid fa-cubes"></i>
+                                <span>Dossier Mods</span>
+                                <span class="quick-access-sub">mods/</span>
+                            </button>
+                            <button class="quick-access-btn" id="btn-open-screenshots-folder">
+                                <i class="fa-solid fa-camera"></i>
+                                <span>Screenshots</span>
+                                <span class="quick-access-sub">screenshots/</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Footer du panneau -->
+                <div class="settings-footer">
+                    <p class="settings-version-label">Pokyra Launcher v1.1.0</p>
+                    <button class="btn-save-settings" id="btn-save-settings">
+                        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder & Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Zone principale de contenu -->
         <main class="launcher-content">
@@ -55,10 +171,10 @@
                     <h1 class="welcome-title">Bienvenue sur <span class="text-gradient-gold">Pokyra</span></h1>
                     <p class="welcome-subtitle">Connectez-vous pour lancer votre aventure Pixelmon.</p>
                     
-                    <!-- Formulaire de Connexion Unique (Offline/Pseudo) -->
+                    <!-- Formulaire de Connexion -->
                     <div class="auth-forms-container">
                         <div class="auth-form" id="form-offline">
-                            <p class="form-help-text">Choisissez le pseudo de votre choix pour rejoindre le serveur Pokyra. Si c'est votre première connexion, vous devrez définir un mot de passe en jeu avec la commande <code>/register &lt;motdepasse&gt; &lt;motdepasse&gt;</code>.</p>
+                            <p class="form-help-text">Choisissez le pseudo de votre choix pour rejoindre le serveur Pokyra. Si c'est votre première connexion, définissez un mot de passe en jeu avec <code>/register &lt;mdp&gt; &lt;mdp&gt;</code>.</p>
                             <div class="input-field-group">
                                 <label for="offline-username-input" class="field-label">PSEUDO EN JEU</label>
                                 <div class="input-wrapper">
@@ -73,6 +189,18 @@
                     <div class="feedback-notification hidden" id="feedback-box">
                         <i class="fa-solid fa-circle-info feedback-icon"></i>
                         <span class="feedback-text" id="feedback-text">Message</span>
+                    </div>
+
+                    <!-- Infobadges de config active -->
+                    <div class="active-config-badges" id="active-config-badges">
+                        <div class="config-badge" id="badge-ram">
+                            <i class="fa-solid fa-memory"></i>
+                            <span id="badge-ram-label">4 Go RAM</span>
+                        </div>
+                        <div class="config-badge config-badge-off" id="badge-schematica">
+                            <i class="fa-solid fa-puzzle-piece"></i>
+                            <span>Schematica OFF</span>
+                        </div>
                     </div>
                 </div>
 

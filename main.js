@@ -19,16 +19,17 @@ function createWindow() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
-            devTools: true      // Activé en développement pour le débogage
+            devTools: !app.isPackaged  // DevTools UNIQUEMENT en mode développement
         }
     });
 
     // Chargement de l'interface graphique
     mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
-    // Affichage propre une fois le contenu chargé
+    // Affichage propre une fois le contenu chargé — sans console en production
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+        // DevTools uniquement quand on lance via "npm start" (développement)
         if (!app.isPackaged) {
             mainWindow.webContents.openDevTools({ mode: 'detach' });
         }
@@ -53,7 +54,7 @@ app.on('window-all-closed', () => {
 });
 
 // ---------------------------------------------------------
-// REQUÊTES SYSTÈME IPC (Boutons Fermer / Réduire)
+// REQUÊTES SYSTÈME IPC (Boutons Fermer / Réduire / Cacher)
 // ---------------------------------------------------------
 ipcMain.on('window-close', () => {
     app.quit();
@@ -63,38 +64,15 @@ ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
 });
 
-// ---------------------------------------------------------
-// CONNEXION SÉCURISÉE MICROSOFT (Exécutée côté Main Process)
-// ---------------------------------------------------------
-ipcMain.on('microsoft-login-request', async (event) => {
-    try {
-        const { Auth } = require('msmc');
-        const msmcAuth = new Auth("select_account");
-        
-        // Lance la popup de connexion Microsoft native d'Electron depuis le Main Process
-        const xboxProfile = await msmcAuth.launch("electron");
-        
-        if (xboxProfile) {
-            // Dans msmc v5, il faut appeler getMinecraft() pour récupérer la session MC
-            const minecraft = await xboxProfile.getMinecraft();
-            
-            if (minecraft && minecraft.mcToken) {
-                event.reply('microsoft-login-response', {
-                    success: true,
-                    profile: {
-                        username: minecraft.profile.name,
-                        uuid: minecraft.profile.id,
-                        token: minecraft.mcToken
-                    }
-                });
-            } else {
-                event.reply('microsoft-login-response', { success: false, reason: "Impossible d'obtenir le jeton Minecraft." });
-            }
-        } else {
-            event.reply('microsoft-login-response', { success: false, reason: "Annulé" });
-        }
-    } catch (error) {
-        console.error("Erreur d'authentification Microsoft dans le Main Process :", error);
-        event.reply('microsoft-login-response', { success: false, reason: error.message || error });
+// Cacher le launcher (quand Minecraft démarre)
+ipcMain.on('window-hide', () => {
+    if (mainWindow) mainWindow.hide();
+});
+
+// Réafficher le launcher (si Minecraft se ferme)
+ipcMain.on('window-show', () => {
+    if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
     }
 });

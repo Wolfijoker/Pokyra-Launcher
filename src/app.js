@@ -1,6 +1,7 @@
 /**
- * Pokyra Launcher - Contrôleur Logique Frontend
- * Gère les interactions utilisateur, la connexion Microsoft et le lancement du jeu.
+ * Pokyra Launcher - Contrôleur Logique Frontend v1.1.0
+ * Gère les interactions utilisateur, les paramètres (RAM, Schematica)
+ * et le lancement du jeu.
  */
 
 const { ipcRenderer } = require('electron');
@@ -10,13 +11,23 @@ const fs = require('fs');
 // Paramètres de configuration globaux
 const SERVER_IP = "play.pokyra.fr";
 const POKYRA_DIR = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME), '.pokyra');
-// Lien direct vers le fichier ZIP de votre modpack contenant les dossiers 'mods/' et 'resourcepacks/'
-// Exemple: "https://mon-hebergement.fr/modpack.zip"
 const MODPACK_ZIP_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/modpack.zip";
+const RESOURCEPACK_URLS = [
+    "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/pokyra.zip",
+    "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/Pokyra.zip"
+];
+
+// Noms des mods optionnels (inclus dans le modpack.zip de base, gérés par le launcher)
+const SCHEMATICA_JAR = "Schematica-1.12.2-1.8.0.169-universal.jar";
+const LUNATRIUSCORE_JAR = "LunatriusCore-1.12.2-1.2.0.42-universal.jar";
 
 // Éléments du DOM
 const btnClose = document.getElementById('btn-close');
 const btnMinimize = document.getElementById('btn-minimize');
+const btnSettings = document.getElementById('btn-settings');
+const btnSettingsClose = document.getElementById('btn-settings-close');
+const btnSaveSettings = document.getElementById('btn-save-settings');
+const settingsOverlay = document.getElementById('settings-overlay');
 const inputOfflineUsername = document.getElementById('offline-username-input');
 const feedbackBox = document.getElementById('feedback-box');
 const feedbackText = document.getElementById('feedback-text');
@@ -25,17 +36,24 @@ const progressState = document.getElementById('progress-state');
 const progressPercent = document.getElementById('progress-percent');
 const progressFill = document.getElementById('progress-fill');
 const playerCountText = document.getElementById('player-count-text');
+const ramSlider = document.getElementById('ram-slider');
+const ramDisplayValue = document.getElementById('ram-display-value');
+const toggleSchematica = document.getElementById('toggle-schematica');
+const badgeRamLabel = document.getElementById('badge-ram-label');
+const badgeSchematicaEl = document.getElementById('badge-schematica');
 
 // Initialisation générale
 document.addEventListener("DOMContentLoaded", () => {
     initWindowControls();
+    initSettingsPanel();
     initOfflineForm();
     initServerStatus();
     initSocialLinks();
+    updateActiveBadges();
 });
 
 // ---------------------------------------------------------
-// CONTRÔLES FENÊTRE SYSTEME
+// CONTRÔLES FENÊTRE SYSTÈME
 // ---------------------------------------------------------
 function initWindowControls() {
     btnClose.addEventListener('click', () => {
@@ -48,21 +66,118 @@ function initWindowControls() {
 }
 
 // ---------------------------------------------------------
+// PANNEAU DE PARAMÈTRES
+// ---------------------------------------------------------
+function initSettingsPanel() {
+    // Charger les valeurs sauvegardées
+    const savedRam = localStorage.getItem('pokyra_ram') || '4';
+    const savedSchematica = localStorage.getItem('pokyra_schematica') === 'true';
+
+    ramSlider.value = savedRam;
+    ramDisplayValue.textContent = `${savedRam} Go`;
+    toggleSchematica.checked = savedSchematica;
+
+    // Ouvrir/fermer le panneau via l'engrenage
+    btnSettings.addEventListener('click', () => {
+        console.log('[Settings] Clic sur engrenage, overlay caché ?', settingsOverlay.classList.contains('hidden'));
+        const isHidden = settingsOverlay.classList.contains('hidden');
+        if (isHidden) {
+            settingsOverlay.classList.remove('hidden');
+            btnSettings.classList.add('active');
+            console.log('[Settings] Panneau ouvert');
+        } else {
+            closeSettingsPanel();
+            console.log('[Settings] Panneau fermé');
+        }
+    });
+
+    // Bouton X dans le panneau
+    btnSettingsClose.addEventListener('click', closeSettingsPanel);
+
+    // Bouton Sauvegarder & Fermer
+    btnSaveSettings.addEventListener('click', () => {
+        saveSettings();
+        closeSettingsPanel();
+    });
+
+    // Mise à jour dynamique du slider RAM
+    ramSlider.addEventListener('input', () => {
+        ramDisplayValue.textContent = `${ramSlider.value} Go`;
+    });
+
+    // Fermer en cliquant hors du panneau
+    settingsOverlay.addEventListener('click', (e) => {
+        if (e.target === settingsOverlay) {
+            saveSettings();
+            closeSettingsPanel();
+        }
+    });
+
+    // Boutons d'accès rapide
+    const btnOpenGameFolder = document.getElementById('btn-open-game-folder');
+    const btnOpenModsFolder = document.getElementById('btn-open-mods-folder');
+    const btnOpenScreenshots = document.getElementById('btn-open-screenshots-folder');
+
+    btnOpenGameFolder.addEventListener('click', () => openFolder(POKYRA_DIR));
+    btnOpenModsFolder.addEventListener('click', () => openFolder(path.join(POKYRA_DIR, 'mods')));
+    btnOpenScreenshots.addEventListener('click', () => openFolder(path.join(POKYRA_DIR, 'screenshots')));
+}
+
+function closeSettingsPanel() {
+    settingsOverlay.classList.add('hidden');
+    btnSettings.classList.remove('active');
+    updateActiveBadges();
+}
+
+function saveSettings() {
+    localStorage.setItem('pokyra_ram', ramSlider.value);
+    localStorage.setItem('pokyra_schematica', toggleSchematica.checked.toString());
+    updateActiveBadges();
+}
+
+function updateActiveBadges() {
+    const ram = localStorage.getItem('pokyra_ram') || '4';
+    const schematica = localStorage.getItem('pokyra_schematica') === 'true';
+
+    if (badgeRamLabel) badgeRamLabel.textContent = `${ram} Go RAM`;
+    if (badgeSchematicaEl) {
+        const span = badgeSchematicaEl.querySelector('span');
+        if (schematica) {
+            badgeSchematicaEl.classList.remove('config-badge-off');
+            if (span) span.textContent = 'Schematica ON';
+        } else {
+            badgeSchematicaEl.classList.add('config-badge-off');
+            if (span) span.textContent = 'Schematica OFF';
+        }
+    }
+}
+
+function openFolder(folderPath) {
+    try {
+        // Créer le dossier s'il n'existe pas
+        if (!fs.existsSync(folderPath)) {
+            fs.mkdirSync(folderPath, { recursive: true });
+        }
+        const { shell } = require('electron');
+        shell.openPath(folderPath);
+    } catch (e) {
+        showFeedback(`Impossible d'ouvrir le dossier : ${e.message}`, 'warning');
+    }
+}
+
+// ---------------------------------------------------------
 // FORMULAIRE DE SAISIE DU PSEUDO (OFFLINE)
 // ---------------------------------------------------------
 function initOfflineForm() {
-    // Restaure le dernier pseudo enregistré
     const savedPseudo = localStorage.getItem('pokyra_last_pseudo');
     if (savedPseudo) {
         inputOfflineUsername.value = savedPseudo;
     }
 
-    // Valide l'état initial du bouton jouer
     validatePlayButton();
 
     inputOfflineUsername.addEventListener('input', () => {
         const username = inputOfflineUsername.value.trim();
-        // Sauvegarde dynamique
         if (username.length >= 3) {
             localStorage.setItem('pokyra_last_pseudo', username);
         }
@@ -98,7 +213,7 @@ async function initServerStatus() {
             document.querySelector('.status-indicator').style.backgroundColor = "var(--text-muted)";
         }
     } catch (e) {
-        playerCountText.textContent = " play.pokyra.fr";
+        playerCountText.textContent = "play.pokyra.fr";
     }
 }
 
@@ -128,7 +243,6 @@ function showFeedback(text, type = "info") {
     feedbackBox.classList.remove('hidden');
     feedbackText.textContent = text;
 
-    // Changement de style dynamique selon le type
     if (type === "success") {
         feedbackBox.style.borderColor = "hsl(142, 70%, 45%)";
         feedbackBox.style.background = "rgba(34, 197, 94, 0.05)";
@@ -144,12 +258,12 @@ function showFeedback(text, type = "info") {
     }
 }
 
-// Helper pour télécharger un fichier avec support des redirections HTTP/HTTPS
+// ---------------------------------------------------------
+// TÉLÉCHARGEMENT AVEC GESTION DES REDIRECTIONS
+// ---------------------------------------------------------
 function downloadWithRedirects(url, destPath, onProgress) {
-    const fs = require('fs');
     const https = require('https');
     const http = require('http');
-    const path = require('path');
     const { URL } = require('url');
 
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -161,14 +275,13 @@ function downloadWithRedirects(url, destPath, onProgress) {
                 const client = urlObj.protocol === 'https:' ? https : http;
 
                 client.get(currentUrl, (response) => {
-                    // Gérer les redirections (3xx)
                     if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                         executeGet(new URL(response.headers.location, currentUrl).href);
                         return;
                     }
 
                     if (response.statusCode !== 200) {
-                        reject(new Error(`Code statut de téléchargement invalide : ${response.statusCode}`));
+                        reject(new Error(`Code statut invalide : ${response.statusCode}`));
                         return;
                     }
 
@@ -184,11 +297,7 @@ function downloadWithRedirects(url, destPath, onProgress) {
                     });
 
                     response.pipe(file);
-
-                    file.on('finish', () => {
-                        file.close();
-                        resolve();
-                    });
+                    file.on('finish', () => { file.close(); resolve(); });
                 }).on('error', (err) => {
                     fs.unlink(destPath, () => { });
                     reject(err);
@@ -203,39 +312,79 @@ function downloadWithRedirects(url, destPath, onProgress) {
 }
 
 // ---------------------------------------------------------
-// RECHERCHE DYNAMIQUE DE JAVA 8 (REQUIS POUR 1.12.2)
+// GESTION DES MODS OPTIONNELS (SCHEMATICA)
+// ---------------------------------------------------------
+// ---------------------------------------------------------
+// GESTION DES MODS OPTIONNELS (SCHEMATICA)
+// Schematica et LunatriusCore sont inclus dans le modpack.zip.
+// Si le toggle est OFF, on les supprime après extraction.
+// Si le toggle est ON, ils restent en place (comportement par défaut).
+// ---------------------------------------------------------
+function manageOptionalMods() {
+    const modsDir = path.join(POKYRA_DIR, 'mods');
+    const schematicaPath = path.join(modsDir, SCHEMATICA_JAR);
+    const lunatriusPath = path.join(modsDir, LUNATRIUSCORE_JAR);
+    const schematicaEnabled = localStorage.getItem('pokyra_schematica') === 'true';
+
+    if (!schematicaEnabled) {
+        // Supprimer les mods optionnels si le toggle est OFF
+        let removed = [];
+        for (const [modPath, name] of [[schematicaPath, SCHEMATICA_JAR], [lunatriusPath, LUNATRIUSCORE_JAR]]) {
+            if (fs.existsSync(modPath)) {
+                fs.unlinkSync(modPath);
+                removed.push(name);
+                console.log(`🗑️ Mod optionnel supprimé : ${name}`);
+            }
+        }
+        if (removed.length > 0) {
+            console.log('Schematica désactivé : mods supprimés du dossier.');
+        }
+    } else {
+        console.log('Schematica activé : les mods seront conservés après extraction du pack.');
+    }
+}
+
+// ---------------------------------------------------------
+// VÉRIFICATION QUE JAVA EST INSTALLÉ
+// ---------------------------------------------------------
+function checkJavaInstalled() {
+    const child_process = require('child_process');
+    try {
+        const result = child_process.execSync('java -version', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+        return true;
+    } catch (e) {
+        // java -version écrit sur stderr donc on doit aussi capturer stderr
+        try {
+            child_process.execSync('java -version 2>&1', { encoding: 'utf8', shell: true });
+            return true;
+        } catch (e2) {
+            return false;
+        }
+    }
+}
+
+// ---------------------------------------------------------
+// RECHERCHE DYNAMIQUE DE JAVA 8
 // ---------------------------------------------------------
 function findJava8Path() {
     const child_process = require('child_process');
-    const fs = require('fs');
-    const path = require('path');
 
-    // 1. Essayer de trouver Java via la commande Windows 'where java'
     try {
         const output = child_process.execSync('where java', { encoding: 'utf8' });
         const foundPaths = output.split('\r\n').map(p => p.trim()).filter(p => p.length > 0);
 
-        // Prioriser les chemins qui pointent vers Java 8 (contenant "8", "1.8", "jre8", "jdk8", "java8path")
         const java8Paths = foundPaths.filter(p =>
             p.toLowerCase().includes('8') ||
             p.toLowerCase().includes('1.8') ||
             p.toLowerCase().includes('java8path')
         );
 
-        if (java8Paths.length > 0) {
-            console.log("☕ Java 8 détecté dynamiquement :", java8Paths[0]);
-            return java8Paths[0];
-        }
-
-        if (foundPaths.length > 0) {
-            console.log("☕ Aucun chemin Java 8 explicite trouvé par 'where', utilisation de :", foundPaths[0]);
-            return foundPaths[0];
-        }
+        if (java8Paths.length > 0) return java8Paths[0];
+        if (foundPaths.length > 0) return foundPaths[0];
     } catch (e) {
-        console.warn("Recherche de Java par 'where java' indisponible, passage au scan de dossiers :", e.message);
+        console.warn("Recherche Java indisponible via 'where java':", e.message);
     }
 
-    // 2. Scan des dossiers d'installation standards de Java
     const standardJavaFolders = [
         "C:\\Program Files\\Java",
         "C:\\Program Files (x86)\\Java",
@@ -249,24 +398,135 @@ function findJava8Path() {
                 for (const sub of subfolders) {
                     if (sub.includes('8') || sub.includes('1.8')) {
                         const candidatePath = path.join(folder, sub, 'bin', 'java.exe');
-                        if (fs.existsSync(candidatePath)) {
-                            console.log("☕ Java 8 scanné avec succès :", candidatePath);
-                            return candidatePath;
-                        }
+                        if (fs.existsSync(candidatePath)) return candidatePath;
                         const candidateJre = path.join(folder, sub, 'jre', 'bin', 'java.exe');
-                        if (fs.existsSync(candidateJre)) {
-                            console.log("☕ JRE 8 scanné avec succès :", candidateJre);
-                            return candidateJre;
-                        }
+                        if (fs.existsSync(candidateJre)) return candidateJre;
                     }
                 }
             } catch (err) { }
         }
     }
 
-    // 3. Fallback par défaut (on laisse le système tenter de l'appeler)
-    console.warn("☕ Aucun chemin absolu Java 8 trouvé, utilisation du binaire par défaut.");
     return "java";
+}
+
+// ---------------------------------------------------------
+// FORCER L'OPTIONS.TXT AVEC LE RESOURCEPACK POKYRA
+// ---------------------------------------------------------
+function forceWriteOptionsTxt() {
+    try {
+        const optionsTxtPath = path.join(POKYRA_DIR, "options.txt");
+        const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+        // 1.12.2 attend des noms de pack "locaux" (sans préfixe file/).
+        const preferredOrder = ["Pokyra", "pokyra", "Pokyra.zip", "pokyra.zip"];
+        const availablePackNames = preferredOrder.filter((name) => fs.existsSync(path.join(rpDir, name)));
+        const packNames = availablePackNames.length > 0 ? availablePackNames : ["Pokyra.zip"];
+        const packList = `resourcePacks:${JSON.stringify(packNames)}`;
+
+        if (fs.existsSync(optionsTxtPath)) {
+            let content = fs.readFileSync(optionsTxtPath, "utf8");
+            if (content.includes("resourcePacks:")) {
+                content = content.replace(/resourcePacks:\[.*\]/, packList);
+            } else {
+                content += "\n" + packList;
+            }
+            // Corriger également incompatibleResourcePacks pour ne pas bloquer Pokyra
+            if (content.includes("incompatibleResourcePacks:")) {
+                content = content.replace(/incompatibleResourcePacks:\[.*\]/, 'incompatibleResourcePacks:[]');
+            }
+            fs.writeFileSync(optionsTxtPath, content, "utf8");
+        } else {
+            const defaultOptions = `version:1343\n${packList}\nincompatibleResourcePacks:[]\n`;
+            fs.writeFileSync(optionsTxtPath, defaultOptions, "utf8");
+        }
+        console.log("🎨 options.txt forcé avec resourcepack Pokyra.zip !");
+    } catch (err) {
+        console.error("Erreur forceWriteOptionsTxt :", err);
+    }
+}
+
+function ensureExtractedResourcePackFolder() {
+    try {
+        const child_process = require('child_process');
+        const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+        const folderCandidates = ["Pokyra", "pokyra"];
+        const zipCandidates = ["Pokyra.zip", "pokyra.zip"];
+
+        // Si un dossier pack valide existe déjà, ne rien faire.
+        const hasReadyFolder = folderCandidates.some((folderName) =>
+            fs.existsSync(path.join(rpDir, folderName, "pack.mcmeta"))
+        );
+        if (hasReadyFolder) return;
+
+        const zipName = zipCandidates.find((name) => fs.existsSync(path.join(rpDir, name)));
+        if (!zipName) return;
+
+        // Le zip fourni contient un dossier parent "Pokyra/" : on l'extrait pour créer un pack dossier valide.
+        if (process.platform === 'win32') {
+            const zipPath = path.join(rpDir, zipName).replace(/'/g, "''");
+            const dstPath = rpDir.replace(/'/g, "''");
+            child_process.execSync(
+                `powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${dstPath}' -Force"`,
+                { stdio: 'ignore' }
+            );
+        }
+    } catch (err) {
+        console.warn("Impossible d'extraire automatiquement le resource pack :", err.message);
+    }
+}
+
+function updateProgress(percent, stateText) {
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
+    progressPercent.textContent = `${Math.round(clamped)}%`;
+    progressFill.style.width = `${clamped}%`;
+    if (stateText) progressState.textContent = stateText;
+}
+
+function tryReadNumber(source, keys) {
+    for (const key of keys) {
+        const value = source && source[key];
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+    }
+    return null;
+}
+
+async function ensureResourcePack() {
+    const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+    const expectedPaths = [
+        path.join(rpDir, "pokyra.zip"),
+        path.join(rpDir, "Pokyra.zip"),
+        path.join(rpDir, "pokyra"),
+        path.join(rpDir, "Pokyra")
+    ];
+
+    if (expectedPaths.some(p => fs.existsSync(p))) {
+        return;
+    }
+
+    fs.mkdirSync(rpDir, { recursive: true });
+    const targetPath = path.join(rpDir, "pokyra.zip");
+    let lastError = null;
+
+    for (const url of RESOURCEPACK_URLS) {
+        try {
+            await downloadWithRedirects(url, targetPath, (downloaded, total) => {
+                if (total > 0) {
+                    const percent = (downloaded / total) * 100;
+                    updateProgress(percent, `Resource pack : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`);
+                } else {
+                    progressState.textContent = "Téléchargement du resource pack...";
+                }
+            });
+            ensureExtractedResourcePackFolder();
+            console.log(`🎨 Resource pack téléchargé depuis ${url}`);
+            return;
+        } catch (err) {
+            lastError = err;
+            console.warn(`Échec téléchargement resource pack (${url}) :`, err.message);
+        }
+    }
+
+    throw new Error(`Impossible de télécharger le resource pack Pokyra.zip (${lastError ? lastError.message : 'erreur inconnue'})`);
 }
 
 // ---------------------------------------------------------
@@ -275,30 +535,67 @@ function findJava8Path() {
 btnPlay.addEventListener('click', async () => {
     if (btnPlay.classList.contains('disabled')) return;
 
-    // Verrouille l'interface pour éviter les double clics
     btnPlay.classList.add('disabled');
-
     progressState.textContent = "Préparation du lancement...";
-    progressFill.style.width = "5%";
-    progressPercent.textContent = "5%";
+    updateProgress(5);
 
     try {
-        const forgeJarPath = path.join(POKYRA_DIR, "forge.jar");
-
-        // 1. Télécharger Forge s'il est manquant
-        if (!fs.existsSync(forgeJarPath)) {
-            showFeedback("Téléchargement du moteur de jeu Forge 1.12.2...", "info");
-            const forgeUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-installer.jar";
-
-            await downloadWithRedirects(forgeUrl, forgeJarPath, (downloaded, total) => {
-                const percent = Math.round((downloaded / total) * 100);
-                progressPercent.textContent = `${percent}%`;
-                progressFill.style.width = `${percent}%`;
-                progressState.textContent = `Téléchargement de Forge : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`;
-            });
-            showFeedback("Moteur Forge téléchargé avec succès !", "success");
+        // 0. Vérifier que Java est installé sur ce PC
+        if (!checkJavaInstalled()) {
+            throw new Error(
+                "Java n'est pas installé sur ce PC !\n\n" +
+                "Minecraft 1.12.2 + Forge nécessite Java 8.\n" +
+                "Télécharge-le ici : https://www.java.com/fr/download/\n\n" +
+                "Installe Java puis relance le launcher."
+            );
         }
 
+        // 1. Suppression préventive des mods optionnels si déjà présents et toggle OFF
+        manageOptionalMods();
+
+        const forgeJarPath = path.join(POKYRA_DIR, "forge.jar");
+
+        // 2. Télécharger Forge si manquant
+        if (!fs.existsSync(forgeJarPath)) {
+            showFeedback("Téléchargement du moteur Forge 1.12.2...", "info");
+            const forgeUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-installer.jar";
+            await downloadWithRedirects(forgeUrl, forgeJarPath, (downloaded, total) => {
+                const percent = total > 0 ? (downloaded / total) * 100 : 0;
+                updateProgress(percent, `Forge : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`);
+            });
+            showFeedback("Forge téléchargé avec succès !", "success");
+        }
+
+        // 3. S'assurer que le resource pack Pokyra est présent
+        await ensureResourcePack();
+
+        // 4. Préparer options.txt AVANT le lancement (resourcepack Pokyra)
+        ensureExtractedResourcePackFolder();
+        forceWriteOptionsTxt();
+
+        // 5. Nettoyer les anciens resourcepacks
+        try {
+            const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+            if (fs.existsSync(rpDir)) {
+                const files = fs.readdirSync(rpDir);
+                for (const file of files) {
+                    if (file !== "Pokyra.zip" && file !== "pokyra.zip" && file !== "Pokyra" && file !== "pokyra") {
+                        const filePath = path.join(rpDir, file);
+                        const stat = fs.statSync(filePath);
+                        if (stat.isDirectory()) {
+                            fs.rmdirSync(filePath, { recursive: true });
+                        } else {
+                            fs.unlinkSync(filePath);
+                        }
+                    }
+                }
+                console.log("🧹 Anciens resourcepacks nettoyés !");
+            }
+        } catch (err) {
+            console.error("Erreur nettoyage resourcepacks :", err);
+        }
+
+        // 6. Préparer la session et les options de lancement
         const { Client } = require('minecraft-launcher-core');
         const launcher = new Client();
 
@@ -311,137 +608,110 @@ btnPlay.addEventListener('click', async () => {
             user_properties: "{}"
         };
 
-        // 1. Nettoyage chirurgical des anciens resourcepacks pour ne garder que Pokyra.zip (Évite l'accumulation de fichiers fantômes)
-        try {
-            const rpDir = path.join(POKYRA_DIR, "resourcepacks");
-            if (fs.existsSync(rpDir)) {
-                const files = fs.readdirSync(rpDir);
-                for (const file of files) {
-                    if (file !== "Pokyra.zip" && file !== "Pokyra") {
-                        const filePath = path.join(rpDir, file);
-                        const stat = fs.statSync(filePath);
-                        if (stat.isDirectory()) {
-                            fs.rmdirSync(filePath, { recursive: true });
-                        } else {
-                            fs.unlinkSync(filePath);
-                        }
-                    }
-                }
-                console.log("🧹 Anciens packs de ressources nettoyés chirurgicalement !");
-            }
-        } catch (err) {
-            console.error("Erreur lors du nettoyage des anciens packs :", err);
-        }
-
-        // Helper pour forcer la configuration de options.txt (Double compatibilité 1.12.2)
-        function forceWriteOptionsTxt() {
-            try {
-                const optionsTxtPath = path.join(POKYRA_DIR, "options.txt");
-                const packList = 'resourcePacks:["Pokyra","file/Pokyra"]'; // Double format pour dossier Pokyra
-                if (fs.existsSync(optionsTxtPath)) {
-                    let optionsContent = fs.readFileSync(optionsTxtPath, "utf8");
-                    if (optionsContent.includes("resourcePacks:")) {
-                        optionsContent = optionsContent.replace(/resourcePacks:\[.*\]/, packList);
-                    } else {
-                        optionsContent += "\n" + packList;
-                    }
-                    fs.writeFileSync(optionsTxtPath, optionsContent, "utf8");
-                    console.log("🎨 options.txt forcé avec succès !");
-                } else {
-                    const defaultOptions = `version:1343\n${packList}\n`;
-                    fs.writeFileSync(optionsTxtPath, defaultOptions, "utf8");
-                    console.log("🎨 Fichier options.txt forcé par création !");
-                }
-            } catch (err) {
-                console.error("Erreur forceWriteOptionsTxt :", err);
-            }
-        }
-
-        // Première écriture préventive
-        forceWriteOptionsTxt();
-        
-        // Résolution dynamique du chemin Java 8
+        // RAM choisie par l'utilisateur dans les paramètres
+        const ramGo = localStorage.getItem('pokyra_ram') || '4';
         const resolvedJavaPath = findJava8Path();
 
-        // Options de lancement de Minecraft Forge 1.12.2
         const opts = {
             clientPackage: MODPACK_ZIP_URL,
-            removePackage: true, // supprime le zip du modpack après extraction
+            removePackage: true,
             authorization: authSession,
             root: POKYRA_DIR,
-            javaPath: resolvedJavaPath, // Utilise la version de Java 8 détectée
+            javaPath: resolvedJavaPath,
             version: {
                 number: "1.12.2",
                 type: "release"
             },
-            forge: forgeJarPath, // Utilise le fichier forge.jar téléchargé
+            forge: forgeJarPath,
             memory: {
-                max: "4G", // Alloue 4 Go de RAM max par défaut
-                min: "2G"
+                max: `${ramGo}G`,
+                min: `${Math.min(2, parseInt(ramGo))}G`
             },
-            customLaunchArgs: ["--server", SERVER_IP, "--port", "25565"], // Argument MCLC officiel pour se connecter directement
+            customLaunchArgs: ["--server", SERVER_IP, "--port", "25565"],
             overrides: {
-                detached: true // Permet de fermer le launcher après le lancement du jeu
+                detached: true
             }
         };
 
-        showFeedback("Recherche de mises à jour de Minecraft...", "info");
+        showFeedback(`Lancement avec ${ramGo} Go de RAM...`, "info");
         progressState.textContent = "Téléchargement des ressources de jeu...";
 
-        // Branchement des écouteurs de progression
-        launcher.on('debug', (e) => console.log(e));
-        launcher.on('data', (e) => console.log(e));
+        // Écouter l'extraction du modpack (déclenché si nouveau téléchargement)
+        // DOIT être enregistré AVANT launcher.launch()
+        launcher.on('package-extract', () => {
+            console.log('[Launcher] Modpack extrait ! Application des préférences Schematica...');
+            manageOptionalMods();
+        });
+
+        launcher.on('data', (e) => {
+            // Afficher les infos de chargement de Minecraft dans la barre de progression
+            if (typeof e === 'string' && e.includes('[')) {
+                progressState.textContent = e.substring(0, 60);
+            }
+        });
 
         launcher.on('progress', (e) => {
-            const percent = Math.round((e.task / e.total) * 100);
-            progressPercent.textContent = `${percent}%`;
-            progressFill.style.width = `${percent}%`;
-            progressState.textContent = `Téléchargement : ${e.type} (${e.task}/${e.total})`;
+            const done = tryReadNumber(e, ['task', 'current', 'progress', 'value']);
+            const total = tryReadNumber(e, ['total', 'max', 'size']);
+            if (done !== null && total !== null && total > 0) {
+                updateProgress((done / total) * 100, `Téléchargement : ${e.type || 'fichiers'} (${Math.round(done)}/${Math.round(total)})`);
+            } else if (typeof e === 'object') {
+                progressState.textContent = `Téléchargement : ${e.type || 'fichiers'}`;
+            }
         });
 
         launcher.on('download-status', (e) => {
             if (e.total && e.total > 0) {
-                const percent = Math.round((e.current / e.total) * 100);
-                progressPercent.textContent = `${percent}%`;
-                progressFill.style.width = `${percent}%`;
-                progressState.textContent = `Téléchargement : ${e.type} (${(e.current / 1024 / 1024).toFixed(1)} Mo / ${(e.total / 1024 / 1024).toFixed(1)} Mo)`;
+                updateProgress((e.current / e.total) * 100, `Téléchargement : ${e.type} (${(e.current / 1024 / 1024).toFixed(1)} Mo / ${(e.total / 1024 / 1024).toFixed(1)} Mo)`);
             } else {
                 progressState.textContent = `Téléchargement des fichiers : ${e.type}`;
             }
         });
 
-        // Lancement effectif
         console.log("Démarrage de Minecraft...");
         const proc = await launcher.launch(opts);
 
         if (!proc) {
-            throw new Error("Le processus Minecraft n'a pas pu être instancié. Veuillez vérifier que Java est correctement installé sur votre système.");
+            throw new Error("Le processus Minecraft n'a pas pu être instancié. Vérifiez que Java 8 est installé.");
         }
 
-        // Seconde écriture de sécurité (après extraction finale du modpack ZIP !)
-        forceWriteOptionsTxt();
+        // Après extraction du modpack
+        launcher.on('package-extract', () => {
+            console.log('Modpack extrait ! Gestion des mods optionnels...');
+            manageOptionalMods();
+        });
 
-        progressState.textContent = "Jeu lancé ! Bon jeu !";
-        progressFill.style.width = "100%";
-        progressPercent.textContent = "100%";
-        showFeedback("Minecraft est démarré. En attente du chargement...", "success");
+        // Réécriture de sécurité du resourcepack après extraction
+        setTimeout(() => forceWriteOptionsTxt(), 3000);
 
-        // Ferme le launcher proprement après 3 secondes (désactivé en dév pour garder les logs)
-        /*
+        updateProgress(100, "Jeu lancé ! Bon jeu ! ⚡");
+        showFeedback(`Minecraft lancé avec ${ramGo} Go de RAM. Bonne aventure sur Pokyra !`, "success");
+
+        // Cacher le launcher une fois que Minecraft est démarré (comportement professionnel)
         setTimeout(() => {
-            ipcRenderer.send('window-close');
-        }, 3000);
-        */
+            ipcRenderer.send('window-hide');
+        }, 5000);
+
+        // Si Minecraft se ferme, réafficher le launcher
+        proc.on('close', (code) => {
+            console.log(`Minecraft fermé avec le code : ${code}`);
+            ipcRenderer.send('window-show');
+            updateProgress(0, "Prêt à lancer");
+            validatePlayButton();
+        });
+
+        // Si Minecraft plante au démarrage
+        proc.on('error', (err) => {
+            console.error('Erreur processus Minecraft :', err);
+            ipcRenderer.send('window-show');
+            showFeedback(`Erreur au démarrage de Minecraft : ${err.message}`, 'danger');
+            validatePlayButton();
+        });
 
     } catch (error) {
         console.error("Erreur de lancement :", error);
-        showFeedback(`Erreur lors du démarrage : ${error.message || error}`, "danger");
-
-        // Déverrouille l'interface en cas d'erreur
+        showFeedback(`Erreur : ${error.message || error}`, "danger");
         validatePlayButton();
-        progressState.textContent = "Erreur de lancement";
-        progressFill.style.width = "0%";
-        progressPercent.textContent = "0%";
+        updateProgress(0, "Erreur de lancement");
     }
 });
-
