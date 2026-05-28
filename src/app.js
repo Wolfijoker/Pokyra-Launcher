@@ -10,6 +10,7 @@ const fs = require('fs');
 
 // Paramètres de configuration globaux
 const SERVER_IP = "play.pokyra.fr";
+const SERVER_PORT = 25565;
 const POKYRA_DIR = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME), '.pokyra');
 const MODPACK_ZIP_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/modpack.zip";
 const JAVA_RUNTIME_DIR = path.join(POKYRA_DIR, "runtime", "java8");
@@ -204,7 +205,9 @@ function validatePlayButton() {
 // ---------------------------------------------------------
 async function initServerStatus() {
     try {
-        const response = await fetch(`https://api.mcsrvstat.us/2/${SERVER_IP}`);
+        const serverTarget = localStorage.getItem('pokyra_server_endpoint') || `${SERVER_IP}:${SERVER_PORT}`;
+        const { host } = parseServerEndpoint(serverTarget);
+        const response = await fetch(`https://api.mcsrvstat.us/2/${host}`);
         const data = await response.json();
 
         if (data.online) {
@@ -430,6 +433,32 @@ function getJavaVersionMajor(javaPath) {
     } catch (e) {
         return null;
     }
+}
+
+function parseServerEndpoint(rawEndpoint) {
+    const fallback = { host: SERVER_IP, port: SERVER_PORT };
+    if (!rawEndpoint || typeof rawEndpoint !== 'string') return fallback;
+
+    const endpoint = rawEndpoint.trim().replace(/^minecraft:\/\//i, '');
+    if (!endpoint) return fallback;
+
+    const lastColonIndex = endpoint.lastIndexOf(':');
+    if (lastColonIndex > 0) {
+        const host = endpoint.slice(0, lastColonIndex).trim();
+        const portRaw = endpoint.slice(lastColonIndex + 1).trim();
+        const parsedPort = parseInt(portRaw, 10);
+        if (host && Number.isFinite(parsedPort) && parsedPort > 0 && parsedPort <= 65535) {
+            return { host, port: parsedPort };
+        }
+    }
+
+    return { host: endpoint, port: SERVER_PORT };
+}
+
+function normalizeExitCode(code) {
+    if (typeof code !== 'number' || !Number.isFinite(code)) return code;
+    // Sur Windows certains codes négatifs sont exposés en uint32.
+    return code > 2147483647 ? code - 4294967296 : code;
 }
 
 function findFileRecursive(rootDir, fileName, maxDepth = 4) {
@@ -696,6 +725,8 @@ btnPlay.addEventListener('click', async () => {
 
         // RAM choisie par l'utilisateur dans les paramètres
         const ramGo = localStorage.getItem('pokyra_ram') || '4';
+        const serverEndpoint = localStorage.getItem('pokyra_server_endpoint') || `${SERVER_IP}:${SERVER_PORT}`;
+        const { host: serverHost, port: serverPort } = parseServerEndpoint(serverEndpoint);
         let resolvedJavaPath = findJava8Path();
 
         let javaMajor = getJavaVersionMajor(resolvedJavaPath);
@@ -726,13 +757,13 @@ btnPlay.addEventListener('click', async () => {
                 max: `${ramGo}G`,
                 min: `${Math.min(2, parseInt(ramGo))}G`
             },
-            customLaunchArgs: ["--server", SERVER_IP, "--port", "25565"],
+            customLaunchArgs: ["--server", serverHost, "--port", String(serverPort)],
             overrides: {
                 detached: false
             }
         };
 
-        showFeedback(`Lancement avec ${ramGo} Go de RAM...`, "info");
+        showFeedback(`Lancement avec ${ramGo} Go de RAM vers ${serverHost}:${serverPort}...`, "info");
         progressState.textContent = "Téléchargement des ressources de jeu...";
 
         // Écouter l'extraction du modpack (déclenché si nouveau téléchargement)
@@ -788,10 +819,15 @@ btnPlay.addEventListener('click', async () => {
 
         // Si Minecraft se ferme, réafficher le launcher
         proc.on('close', (code) => {
-            console.log(`Minecraft fermé avec le code : ${code}`);
+            const normalizedCode = normalizeExitCode(code);
+            console.log(`Minecraft fermé avec le code : ${normalizedCode}`);
             ipcRenderer.send('window-show');
-            if (code && code !== 0) {
-                showFeedback(`Minecraft s'est fermé avec le code ${code}. Vérifie Java 8 et les logs du jeu.`, 'danger');
+            if (normalizedCode && normalizedCode !== 0) {
+                if (normalizedCode === -1) {
+                    showFeedback("Minecraft s'est fermé avec le code -1. Vérifie Java 8, les logs et l'adresse serveur (host:port).", 'danger');
+                } else {
+                    showFeedback(`Minecraft s'est fermé avec le code ${normalizedCode}. Vérifie Java 8 et les logs du jeu.`, 'danger');
+                }
             }
             updateProgress(0, "Prêt à lancer");
             validatePlayButton();
