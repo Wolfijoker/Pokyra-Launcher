@@ -38,9 +38,7 @@
       "perMachine": false,
       "shortcutName": "Pokyra",
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png"
+      "createStartMenuShortcut": true
     },
     "files": [
       "**/*",
