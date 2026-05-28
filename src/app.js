@@ -12,6 +12,8 @@ const fs = require('fs');
 const SERVER_IP = "play.pokyra.fr";
 const POKYRA_DIR = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME), '.pokyra');
 const MODPACK_ZIP_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/modpack.zip";
+const JAVA_RUNTIME_DIR = path.join(POKYRA_DIR, "runtime", "java8");
+const JAVA8_WINDOWS_ZIP_URL = "https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse";
 const RESOURCEPACK_URLS = [
     "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/pokyra.zip",
     "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/Pokyra.zip"
@@ -410,6 +412,100 @@ function findJava8Path() {
     return "java";
 }
 
+function getJavaVersionMajor(javaPath) {
+    const child_process = require('child_process');
+    try {
+        const output = child_process.execSync(`"${javaPath}" -version 2>&1`, { encoding: 'utf8', shell: true });
+        const match = output.match(/version "(.*?)"/i);
+        if (!match) return null;
+
+        const versionString = match[1];
+        // Java 8 => "1.8.x", Java 11+ => "11.x"
+        if (versionString.startsWith("1.")) {
+            const minor = parseInt(versionString.split(".")[1], 10);
+            return Number.isFinite(minor) ? minor : null;
+        }
+        const major = parseInt(versionString.split(".")[0], 10);
+        return Number.isFinite(major) ? major : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function findFileRecursive(rootDir, fileName, maxDepth = 4) {
+    if (!fs.existsSync(rootDir)) return null;
+    const stack = [{ dir: rootDir, depth: 0 }];
+
+    while (stack.length > 0) {
+        const { dir, depth } = stack.pop();
+        let entries = [];
+        try {
+            entries = fs.readdirSync(dir);
+        } catch (e) {
+            continue;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry);
+            let stat = null;
+            try {
+                stat = fs.statSync(fullPath);
+            } catch (e) {
+                continue;
+            }
+
+            if (stat.isFile() && entry.toLowerCase() === fileName.toLowerCase()) {
+                return fullPath;
+            }
+            if (stat.isDirectory() && depth < maxDepth) {
+                stack.push({ dir: fullPath, depth: depth + 1 });
+            }
+        }
+    }
+
+    return null;
+}
+
+async function ensureManagedJava8Runtime() {
+    const javaExecutableName = process.platform === 'win32' ? 'java.exe' : 'java';
+    const existingJavaPath = findFileRecursive(JAVA_RUNTIME_DIR, javaExecutableName);
+    if (existingJavaPath) return existingJavaPath;
+
+    if (process.platform !== 'win32') {
+        throw new Error("Téléchargement automatique de Java 8 non supporté sur cette plateforme.");
+    }
+
+    const child_process = require('child_process');
+    const zipPath = path.join(JAVA_RUNTIME_DIR, "java8-runtime.zip");
+    fs.mkdirSync(JAVA_RUNTIME_DIR, { recursive: true });
+
+    await downloadWithRedirects(JAVA8_WINDOWS_ZIP_URL, zipPath, (downloaded, total) => {
+        if (total > 0) {
+            const percent = (downloaded / total) * 100;
+            updateProgress(percent, `Java 8 : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`);
+        } else {
+            progressState.textContent = "Téléchargement automatique de Java 8...";
+        }
+    });
+
+    const quotedZip = zipPath.replace(/'/g, "''");
+    const quotedDst = JAVA_RUNTIME_DIR.replace(/'/g, "''");
+    child_process.execSync(
+        `powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${quotedZip}' -DestinationPath '${quotedDst}' -Force"`,
+        { stdio: 'ignore' }
+    );
+
+    try {
+        fs.unlinkSync(zipPath);
+    } catch (e) { }
+
+    const installedJavaPath = findFileRecursive(JAVA_RUNTIME_DIR, "java.exe");
+    if (!installedJavaPath) {
+        throw new Error("Java 8 téléchargé mais java.exe introuvable après extraction.");
+    }
+    return installedJavaPath;
+}
+
 // ---------------------------------------------------------
 // FORCER L'OPTIONS.TXT AVEC LE RESOURCEPACK POKYRA
 // ---------------------------------------------------------
@@ -540,16 +636,6 @@ btnPlay.addEventListener('click', async () => {
     updateProgress(5);
 
     try {
-        // 0. Vérifier que Java est installé sur ce PC
-        if (!checkJavaInstalled()) {
-            throw new Error(
-                "Java n'est pas installé sur ce PC !\n\n" +
-                "Minecraft 1.12.2 + Forge nécessite Java 8.\n" +
-                "Télécharge-le ici : https://www.java.com/fr/download/\n\n" +
-                "Installe Java puis relance le launcher."
-            );
-        }
-
         // 1. Suppression préventive des mods optionnels si déjà présents et toggle OFF
         manageOptionalMods();
 
@@ -610,7 +696,20 @@ btnPlay.addEventListener('click', async () => {
 
         // RAM choisie par l'utilisateur dans les paramètres
         const ramGo = localStorage.getItem('pokyra_ram') || '4';
-        const resolvedJavaPath = findJava8Path();
+        let resolvedJavaPath = findJava8Path();
+
+        let javaMajor = getJavaVersionMajor(resolvedJavaPath);
+        if (javaMajor !== 8) {
+            showFeedback("Java 8 non détecté. Téléchargement automatique en cours...", "info");
+            resolvedJavaPath = await ensureManagedJava8Runtime();
+            javaMajor = getJavaVersionMajor(resolvedJavaPath);
+            if (javaMajor !== 8) {
+                throw new Error(
+                    `Java détecté: version ${javaMajor || 'inconnue'} (${resolvedJavaPath}).\n` +
+                    "Minecraft 1.12.2 + Forge nécessite Java 8."
+                );
+            }
+        }
 
         const opts = {
             clientPackage: MODPACK_ZIP_URL,
@@ -629,7 +728,7 @@ btnPlay.addEventListener('click', async () => {
             },
             customLaunchArgs: ["--server", SERVER_IP, "--port", "25565"],
             overrides: {
-                detached: true
+                detached: false
             }
         };
 
@@ -687,15 +786,13 @@ btnPlay.addEventListener('click', async () => {
         updateProgress(100, "Jeu lancé ! Bon jeu ! ⚡");
         showFeedback(`Minecraft lancé avec ${ramGo} Go de RAM. Bonne aventure sur Pokyra !`, "success");
 
-        // Cacher le launcher une fois que Minecraft est démarré (comportement professionnel)
-        setTimeout(() => {
-            ipcRenderer.send('window-hide');
-        }, 5000);
-
         // Si Minecraft se ferme, réafficher le launcher
         proc.on('close', (code) => {
             console.log(`Minecraft fermé avec le code : ${code}`);
             ipcRenderer.send('window-show');
+            if (code && code !== 0) {
+                showFeedback(`Minecraft s'est fermé avec le code ${code}. Vérifie Java 8 et les logs du jeu.`, 'danger');
+            }
             updateProgress(0, "Prêt à lancer");
             validatePlayButton();
         });
