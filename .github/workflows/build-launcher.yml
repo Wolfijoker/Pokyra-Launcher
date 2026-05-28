@@ -41,11 +41,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Pokyra-Setup.exe
+            dist/*.exe
+            dist/*.blockmap
           tag_name: latest
           name: Pokyra Launcher - Dernière Version
           draft: false
           prerelease: false
           make_latest: true
+          overwrite_files: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
