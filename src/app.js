@@ -13,16 +13,17 @@ const SERVER_IP = "play.pokyra.fr";
 const SERVER_PORT = 25565;
 const POKYRA_DIR = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME), '.pokyra');
 const MODPACK_ZIP_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/modpack.zip";
+const MODPACK_CACHE_PATH = path.join(POKYRA_DIR, "modpack-cache.zip");
 const JAVA_RUNTIME_DIR = path.join(POKYRA_DIR, "runtime", "java8");
 const JAVA8_WINDOWS_ZIP_URL = "https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse";
-const RESOURCEPACK_URLS = [
-    "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/pokyra.zip",
-    "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/Pokyra.zip"
-];
 
 // Noms des mods optionnels (inclus dans le modpack.zip de base, gérés par le launcher)
 const SCHEMATICA_JAR = "Schematica-1.12.2-1.8.0.169-universal.jar";
 const LUNATRIUSCORE_JAR = "LunatriusCore-1.12.2-1.2.0.42-universal.jar";
+
+// JEI : le modpack.zip contient encore 4.16.1.1013 (textures GUI cassées avec Pixelmon 8.4)
+const JEI_FIXED_JAR = "jei_1.12.2-4.16.1.301.jar";
+const JEI_FIXED_URL = "https://maven.blamejared.com/mezz/jei/jei_1.12.2/4.16.1.301/jei_1.12.2-4.16.1.301.jar";
 
 // Éléments du DOM
 const btnClose = document.getElementById('btn-close');
@@ -350,6 +351,40 @@ function manageOptionalMods() {
 }
 
 // ---------------------------------------------------------
+// JEI — une seule version (évite doublon FML + textures blanches)
+// ---------------------------------------------------------
+function removeDuplicateJeiJars() {
+    const modsDir = path.join(POKYRA_DIR, 'mods');
+    if (!fs.existsSync(modsDir)) {
+        return;
+    }
+    for (const file of fs.readdirSync(modsDir)) {
+        if (!file.toLowerCase().startsWith('jei_') || !file.endsWith('.jar')) {
+            continue;
+        }
+        if (file === JEI_FIXED_JAR) {
+            continue;
+        }
+        fs.unlinkSync(path.join(modsDir, file));
+        console.log(`🔧 JEI : version en double supprimée — ${file}`);
+    }
+}
+
+async function ensureFixedJeiVersion() {
+    const modsDir = path.join(POKYRA_DIR, 'mods');
+    fs.mkdirSync(modsDir, { recursive: true });
+    const fixedPath = path.join(modsDir, JEI_FIXED_JAR);
+
+    if (!fs.existsSync(fixedPath)) {
+        console.log('📥 Téléchargement JEI corrigé (4.16.1.301)...');
+        await downloadWithRedirects(JEI_FIXED_URL, fixedPath);
+        console.log('✅ JEI 4.16.1.301 installé.');
+    }
+
+    removeDuplicateJeiJars();
+}
+
+// ---------------------------------------------------------
 // VÉRIFICATION QUE JAVA EST INSTALLÉ
 // ---------------------------------------------------------
 function checkJavaInstalled() {
@@ -570,6 +605,32 @@ function forceWriteOptionsTxt() {
     }
 }
 
+// OptiFine : AF + Custom GUIs cassent les textures JEI (carrés blancs)
+function ensureOptifineJeISettings() {
+    try {
+        const optionsOfPath = path.join(POKYRA_DIR, "optionsof.txt");
+        if (!fs.existsSync(optionsOfPath)) {
+            return;
+        }
+        let content = fs.readFileSync(optionsOfPath, "utf8");
+        let changed = false;
+        if (/^ofAfLevel:\d+/m.test(content)) {
+            content = content.replace(/^ofAfLevel:\d+/m, "ofAfLevel:0");
+            changed = true;
+        }
+        if (/^ofCustomGuis:(true|false)/m.test(content)) {
+            content = content.replace(/^ofCustomGuis:(true|false)/m, "ofCustomGuis:false");
+            changed = true;
+        }
+        if (changed) {
+            fs.writeFileSync(optionsOfPath, content, "utf8");
+            console.log("🖼️ OptiFine ajusté pour JEI (AF off, Custom GUIs off).");
+        }
+    } catch (err) {
+        console.error("Erreur ensureOptifineJeISettings :", err);
+    }
+}
+
 function ensureExtractedResourcePackFolder() {
     try {
         const child_process = require('child_process');
@@ -615,7 +676,7 @@ function tryReadNumber(source, keys) {
     return null;
 }
 
-async function ensureResourcePack() {
+function hasResourcePackInstalled() {
     const rpDir = path.join(POKYRA_DIR, "resourcepacks");
     const expectedPaths = [
         path.join(rpDir, "pokyra.zip"),
@@ -623,35 +684,92 @@ async function ensureResourcePack() {
         path.join(rpDir, "pokyra"),
         path.join(rpDir, "Pokyra")
     ];
+    return expectedPaths.some(p => fs.existsSync(p));
+}
 
-    if (expectedPaths.some(p => fs.existsSync(p))) {
+function isResourcePackZipEntry(entryName) {
+    const normalized = entryName.replace(/\\/g, "/").toLowerCase();
+    return /(?:resource|ressource)packs?\/pokyra\.zip$/.test(normalized);
+}
+
+function findModpackZipOnDisk() {
+    const candidates = [
+        MODPACK_CACHE_PATH,
+        path.join(POKYRA_DIR, "clientPackage.zip")
+    ];
+    return candidates.find(p => fs.existsSync(p)) || null;
+}
+
+function relocateResourcePackFromExtractedModpack() {
+    const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+    const targetPath = path.join(rpDir, "pokyra.zip");
+    if (fs.existsSync(targetPath)) return true;
+
+    const searchDirs = [
+        path.join(POKYRA_DIR, "resourcepacks"),
+        path.join(POKYRA_DIR, "resourcepack"),
+        path.join(POKYRA_DIR, "ressourcepacks"),
+        path.join(POKYRA_DIR, "ressourcepack")
+    ];
+
+    for (const dir of searchDirs) {
+        for (const name of ["pokyra.zip", "Pokyra.zip"]) {
+            const src = path.join(dir, name);
+            if (fs.existsSync(src) && path.resolve(src) !== path.resolve(targetPath)) {
+                fs.mkdirSync(rpDir, { recursive: true });
+                fs.copyFileSync(src, targetPath);
+                console.log(`🎨 Resource pack copié depuis ${src}`);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function extractResourcePackFromModpackZip(modpackZipPath) {
+    const AdmZip = require("adm-zip");
+    const zip = new AdmZip(modpackZipPath);
+    const entry = zip.getEntries().find(e => !e.isDirectory && isResourcePackZipEntry(e.entryName));
+    if (!entry) return false;
+
+    const rpDir = path.join(POKYRA_DIR, "resourcepacks");
+    fs.mkdirSync(rpDir, { recursive: true });
+    fs.writeFileSync(path.join(rpDir, "pokyra.zip"), entry.getData());
+    console.log(`🎨 Resource pack extrait du modpack (${entry.entryName})`);
+    return true;
+}
+
+async function ensureModpackCache() {
+    const existing = findModpackZipOnDisk();
+    if (existing) return existing;
+
+    fs.mkdirSync(POKYRA_DIR, { recursive: true });
+    await downloadWithRedirects(MODPACK_ZIP_URL, MODPACK_CACHE_PATH, (downloaded, total) => {
+        if (total > 0) {
+            const percent = (downloaded / total) * 100;
+            updateProgress(percent, `Modpack : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`);
+        } else {
+            progressState.textContent = "Téléchargement du modpack...";
+        }
+    });
+    return MODPACK_CACHE_PATH;
+}
+
+async function ensureResourcePack() {
+    if (hasResourcePackInstalled()) return;
+
+    if (relocateResourcePackFromExtractedModpack()) {
+        ensureExtractedResourcePackFolder();
         return;
     }
 
-    fs.mkdirSync(rpDir, { recursive: true });
-    const targetPath = path.join(rpDir, "pokyra.zip");
-    let lastError = null;
-
-    for (const url of RESOURCEPACK_URLS) {
-        try {
-            await downloadWithRedirects(url, targetPath, (downloaded, total) => {
-                if (total > 0) {
-                    const percent = (downloaded / total) * 100;
-                    updateProgress(percent, `Resource pack : ${(downloaded / 1024 / 1024).toFixed(1)} Mo / ${(total / 1024 / 1024).toFixed(1)} Mo`);
-                } else {
-                    progressState.textContent = "Téléchargement du resource pack...";
-                }
-            });
-            ensureExtractedResourcePackFolder();
-            console.log(`🎨 Resource pack téléchargé depuis ${url}`);
-            return;
-        } catch (err) {
-            lastError = err;
-            console.warn(`Échec téléchargement resource pack (${url}) :`, err.message);
-        }
+    const modpackPath = await ensureModpackCache();
+    if (extractResourcePackFromModpackZip(modpackPath)) {
+        ensureExtractedResourcePackFolder();
+        return;
     }
 
-    throw new Error(`Impossible de télécharger le resource pack Pokyra.zip (${lastError ? lastError.message : 'erreur inconnue'})`);
+    throw new Error("Pokyra.zip introuvable dans modpack.zip (attendu dans resourcepack/pokyra.zip).");
 }
 
 // ---------------------------------------------------------
@@ -667,6 +785,9 @@ btnPlay.addEventListener('click', async () => {
     try {
         // 1. Suppression préventive des mods optionnels si déjà présents et toggle OFF
         manageOptionalMods();
+
+        // 1b. JEI unique (modpack.zip peut réinjecter 4.16.1.1013)
+        await ensureFixedJeiVersion();
 
         const forgeJarPath = path.join(POKYRA_DIR, "forge.jar");
 
@@ -687,6 +808,7 @@ btnPlay.addEventListener('click', async () => {
         // 4. Préparer options.txt AVANT le lancement (resourcepack Pokyra)
         ensureExtractedResourcePackFolder();
         forceWriteOptionsTxt();
+        ensureOptifineJeISettings();
 
         // 5. Nettoyer les anciens resourcepacks
         try {
@@ -742,9 +864,10 @@ btnPlay.addEventListener('click', async () => {
             }
         }
 
+        const modpackPath = findModpackZipOnDisk() || await ensureModpackCache();
         const opts = {
-            clientPackage: MODPACK_ZIP_URL,
-            removePackage: true,
+            clientPackage: modpackPath,
+            removePackage: false,
             authorization: authSession,
             root: POKYRA_DIR,
             javaPath: resolvedJavaPath,
@@ -769,8 +892,12 @@ btnPlay.addEventListener('click', async () => {
         // Écouter l'extraction du modpack (déclenché si nouveau téléchargement)
         // DOIT être enregistré AVANT launcher.launch()
         launcher.on('package-extract', () => {
-            console.log('[Launcher] Modpack extrait ! Application des préférences Schematica...');
+            console.log('[Launcher] Modpack extrait ! Application des préférences...');
             manageOptionalMods();
+            removeDuplicateJeiJars();
+            relocateResourcePackFromExtractedModpack();
+            ensureExtractedResourcePackFolder();
+            forceWriteOptionsTxt();
         });
 
         launcher.on('data', (e) => {
@@ -805,11 +932,7 @@ btnPlay.addEventListener('click', async () => {
             throw new Error("Le processus Minecraft n'a pas pu être instancié. Vérifiez que Java 8 est installé.");
         }
 
-        // Après extraction du modpack
-        launcher.on('package-extract', () => {
-            console.log('Modpack extrait ! Gestion des mods optionnels...');
-            manageOptionalMods();
-        });
+        // (package-extract déjà enregistré plus haut)
 
         // Réécriture de sécurité du resourcepack après extraction
         setTimeout(() => forceWriteOptionsTxt(), 3000);
