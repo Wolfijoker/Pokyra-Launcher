@@ -26,8 +26,8 @@ const JEI_FIXED_JAR = "jei_1.12.2-4.16.1.301.jar";
 const JEI_FIXED_URL = "https://maven.blamejared.com/mezz/jei/jei_1.12.2/4.16.1.301/jei_1.12.2-4.16.1.301.jar";
 
 // PokyraOverlay : rechargement auto textures JEI à la connexion serveur
-const OVERLAY_FIXED_JAR = "PokyraOverlay-1.0.2.jar";
-const OVERLAY_FIXED_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/PokyraOverlay-1.0.2.jar";
+const OVERLAY_FIXED_JAR = "PokyraOverlay-1.0.3.jar";
+const OVERLAY_FIXED_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/PokyraOverlay-1.0.3.jar";
 
 // Éléments du DOM
 const btnClose = document.getElementById('btn-close');
@@ -483,11 +483,11 @@ async function ensureFixedOverlayVersion() {
         const bundledPath = path.join(__dirname, '..', 'assets', OVERLAY_FIXED_JAR);
         if (fs.existsSync(bundledPath)) {
             fs.copyFileSync(bundledPath, fixedPath);
-            console.log('✅ PokyraOverlay 1.0.2 installé depuis le launcher.');
+            console.log('✅ PokyraOverlay 1.0.3 installé depuis le launcher.');
         } else {
-            console.log('📥 Téléchargement PokyraOverlay 1.0.2...');
+            console.log('📥 Téléchargement PokyraOverlay 1.0.3...');
             await downloadWithRedirects(OVERLAY_FIXED_URL, fixedPath);
-            console.log('✅ PokyraOverlay 1.0.2 installé.');
+            console.log('✅ PokyraOverlay 1.0.3 installé.');
         }
     }
 
@@ -753,6 +753,38 @@ function ensureOptifineJeISettings() {
     }
 }
 
+// FoamFix : patches textures/atlas qui cassent JEI avec Pixelmon + OptiFine
+function ensureFoamFixJeISettings() {
+    try {
+        const foamPath = path.join(POKYRA_DIR, "config", "foamfix.cfg");
+        if (!fs.existsSync(foamPath)) {
+            return;
+        }
+        let content = fs.readFileSync(foamPath, "utf8");
+        let changed = false;
+
+        const patches = [
+            { needle: "B:dynamicItemModels=true", replacement: "B:dynamicItemModels=false" },
+            { needle: "B:jeiCreativeSearch=true", replacement: "B:jeiCreativeSearch=false" },
+            { needle: "B:enable=true", replacement: "B:enable=false" }
+        ];
+
+        for (const patch of patches) {
+            if (content.includes(patch.needle)) {
+                content = content.split(patch.needle).join(patch.replacement);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            fs.writeFileSync(foamPath, content, "utf8");
+            console.log("🧩 FoamFix ajusté pour JEI (textures patch off, dynamicItemModels off).");
+        }
+    } catch (err) {
+        console.error("Erreur ensureFoamFixJeISettings :", err);
+    }
+}
+
 function ensureExtractedResourcePackFolder() {
     try {
         const child_process = require('child_process');
@@ -942,6 +974,7 @@ btnPlay.addEventListener('click', async () => {
         ensureExtractedResourcePackFolder();
         forceWriteOptionsTxt();
         ensureOptifineJeISettings();
+        ensureFoamFixJeISettings();
 
         // 5. Nettoyer les anciens resourcepacks
         try {
@@ -1033,6 +1066,7 @@ btnPlay.addEventListener('click', async () => {
             ensureExtractedResourcePackFolder();
             forceWriteOptionsTxt();
             ensureOptifineJeISettings();
+        ensureFoamFixJeISettings();
         });
 
         launcher.on('data', (e) => {
