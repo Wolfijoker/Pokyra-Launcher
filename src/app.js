@@ -25,6 +25,10 @@ const LUNATRIUSCORE_JAR = "LunatriusCore-1.12.2-1.2.0.42-universal.jar";
 const JEI_FIXED_JAR = "jei_1.12.2-4.16.1.301.jar";
 const JEI_FIXED_URL = "https://maven.blamejared.com/mezz/jei/jei_1.12.2/4.16.1.301/jei_1.12.2-4.16.1.301.jar";
 
+// PokyraOverlay : rechargement auto textures JEI à la connexion serveur
+const OVERLAY_FIXED_JAR = "PokyraOverlay-1.0.2.jar";
+const OVERLAY_FIXED_URL = "https://github.com/Wolfijoker/pokyra-assets/releases/download/1.0/PokyraOverlay-1.0.2.jar";
+
 // Éléments du DOM
 const btnClose = document.getElementById('btn-close');
 const btnMinimize = document.getElementById('btn-minimize');
@@ -317,6 +321,72 @@ function downloadWithRedirects(url, destPath, onProgress) {
     });
 }
 
+function headWithRedirects(url) {
+    const https = require('https');
+    const http = require('http');
+    const { URL } = require('url');
+
+    return new Promise((resolve, reject) => {
+        function executeHead(currentUrl) {
+            try {
+                const urlObj = new URL(currentUrl);
+                const client = urlObj.protocol === 'https:' ? https : http;
+
+                const request = client.request(currentUrl, { method: 'HEAD' }, (response) => {
+                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                        response.resume();
+                        executeHead(new URL(response.headers.location, currentUrl).href);
+                        return;
+                    }
+
+                    if (response.statusCode !== 200) {
+                        response.resume();
+                        reject(new Error(`Code statut invalide : ${response.statusCode}`));
+                        return;
+                    }
+
+                    response.resume();
+                    resolve({
+                        contentLength: parseInt(response.headers['content-length'], 10) || 0
+                    });
+                });
+
+                request.on('error', reject);
+                request.end();
+            } catch (e) {
+                reject(e);
+            }
+        }
+
+        executeHead(url);
+    });
+}
+
+async function getRemoteModpackSize() {
+    try {
+        const head = await headWithRedirects(MODPACK_ZIP_URL);
+        return head.contentLength;
+    } catch (err) {
+        console.warn('Vérification modpack distant impossible :', err.message);
+        return 0;
+    }
+}
+
+function getLocalModpackSize(filePath) {
+    if (!filePath || !fs.existsSync(filePath)) return -1;
+    return fs.statSync(filePath).size;
+}
+
+async function isModpackCacheUpToDate() {
+    const localPath = fs.existsSync(MODPACK_CACHE_PATH) ? MODPACK_CACHE_PATH : null;
+    if (!localPath) return false;
+
+    const remoteSize = await getRemoteModpackSize();
+    if (remoteSize <= 0) return true;
+
+    return getLocalModpackSize(localPath) === remoteSize;
+}
+
 // ---------------------------------------------------------
 // GESTION DES MODS OPTIONNELS (SCHEMATICA)
 // ---------------------------------------------------------
@@ -382,6 +452,46 @@ async function ensureFixedJeiVersion() {
     }
 
     removeDuplicateJeiJars();
+}
+
+// ---------------------------------------------------------
+// PokyraOverlay — version avec fix JEI (rechargement textures auto)
+// ---------------------------------------------------------
+function removeDuplicateOverlayJars() {
+    const modsDir = path.join(POKYRA_DIR, 'mods');
+    if (!fs.existsSync(modsDir)) {
+        return;
+    }
+    for (const file of fs.readdirSync(modsDir)) {
+        if (!file.toLowerCase().startsWith('pokyraoverlay-') || !file.endsWith('.jar')) {
+            continue;
+        }
+        if (file === OVERLAY_FIXED_JAR) {
+            continue;
+        }
+        fs.unlinkSync(path.join(modsDir, file));
+        console.log(`🔧 PokyraOverlay : version en double supprimée — ${file}`);
+    }
+}
+
+async function ensureFixedOverlayVersion() {
+    const modsDir = path.join(POKYRA_DIR, 'mods');
+    fs.mkdirSync(modsDir, { recursive: true });
+    const fixedPath = path.join(modsDir, OVERLAY_FIXED_JAR);
+
+    if (!fs.existsSync(fixedPath)) {
+        const bundledPath = path.join(__dirname, '..', 'assets', OVERLAY_FIXED_JAR);
+        if (fs.existsSync(bundledPath)) {
+            fs.copyFileSync(bundledPath, fixedPath);
+            console.log('✅ PokyraOverlay 1.0.2 installé depuis le launcher.');
+        } else {
+            console.log('📥 Téléchargement PokyraOverlay 1.0.2...');
+            await downloadWithRedirects(OVERLAY_FIXED_URL, fixedPath);
+            console.log('✅ PokyraOverlay 1.0.2 installé.');
+        }
+    }
+
+    removeDuplicateOverlayJars();
 }
 
 // ---------------------------------------------------------
@@ -609,19 +719,31 @@ function forceWriteOptionsTxt() {
 function ensureOptifineJeISettings() {
     try {
         const optionsOfPath = path.join(POKYRA_DIR, "optionsof.txt");
-        if (!fs.existsSync(optionsOfPath)) {
-            return;
-        }
-        let content = fs.readFileSync(optionsOfPath, "utf8");
+        let content = fs.existsSync(optionsOfPath)
+            ? fs.readFileSync(optionsOfPath, "utf8")
+            : "";
         let changed = false;
+
         if (/^ofAfLevel:\d+/m.test(content)) {
-            content = content.replace(/^ofAfLevel:\d+/m, "ofAfLevel:0");
+            if (!/^ofAfLevel:0$/m.test(content)) {
+                content = content.replace(/^ofAfLevel:\d+/m, "ofAfLevel:0");
+                changed = true;
+            }
+        } else {
+            content += (content.length > 0 && !content.endsWith("\n") ? "\n" : "") + "ofAfLevel:0\n";
             changed = true;
         }
+
         if (/^ofCustomGuis:(true|false)/m.test(content)) {
-            content = content.replace(/^ofCustomGuis:(true|false)/m, "ofCustomGuis:false");
+            if (!/^ofCustomGuis:false$/m.test(content)) {
+                content = content.replace(/^ofCustomGuis:(true|false)/m, "ofCustomGuis:false");
+                changed = true;
+            }
+        } else {
+            content += (content.length > 0 && !content.endsWith("\n") ? "\n" : "") + "ofCustomGuis:false\n";
             changed = true;
         }
+
         if (changed) {
             fs.writeFileSync(optionsOfPath, content, "utf8");
             console.log("🖼️ OptiFine ajusté pour JEI (AF off, Custom GUIs off).");
@@ -740,10 +862,18 @@ function extractResourcePackFromModpackZip(modpackZipPath) {
 }
 
 async function ensureModpackCache() {
-    const existing = findModpackZipOnDisk();
-    if (existing) return existing;
-
     fs.mkdirSync(POKYRA_DIR, { recursive: true });
+
+    const upToDate = await isModpackCacheUpToDate();
+    if (upToDate) {
+        return MODPACK_CACHE_PATH;
+    }
+
+    if (fs.existsSync(MODPACK_CACHE_PATH)) {
+        console.log('Mise à jour du modpack détectée (nouvelle version sur GitHub)...');
+        progressState.textContent = "Mise à jour du modpack...";
+    }
+
     await downloadWithRedirects(MODPACK_ZIP_URL, MODPACK_CACHE_PATH, (downloaded, total) => {
         if (total > 0) {
             const percent = (downloaded / total) * 100;
@@ -788,6 +918,9 @@ btnPlay.addEventListener('click', async () => {
 
         // 1b. JEI unique (modpack.zip peut réinjecter 4.16.1.1013)
         await ensureFixedJeiVersion();
+
+        // 1c. PokyraOverlay avec fix textures JEI
+        await ensureFixedOverlayVersion();
 
         const forgeJarPath = path.join(POKYRA_DIR, "forge.jar");
 
@@ -864,7 +997,7 @@ btnPlay.addEventListener('click', async () => {
             }
         }
 
-        const modpackPath = findModpackZipOnDisk() || await ensureModpackCache();
+        const modpackPath = await ensureModpackCache();
         const opts = {
             clientPackage: modpackPath,
             removePackage: false,
@@ -895,9 +1028,11 @@ btnPlay.addEventListener('click', async () => {
             console.log('[Launcher] Modpack extrait ! Application des préférences...');
             manageOptionalMods();
             removeDuplicateJeiJars();
+            removeDuplicateOverlayJars();
             relocateResourcePackFromExtractedModpack();
             ensureExtractedResourcePackFolder();
             forceWriteOptionsTxt();
+            ensureOptifineJeISettings();
         });
 
         launcher.on('data', (e) => {
