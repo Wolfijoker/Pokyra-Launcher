@@ -92,6 +92,14 @@ body {
     position: relative;
 }
 
+.titlebar-logo-img {
+    border-radius: 6px;
+    object-fit: contain;
+    object-position: center;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.2);
+}
+
 .titlebar-logo {
     display: flex;
     align-items: center;

@@ -1,35 +1,43 @@
 /**
  * Pokyra - Main Process Electron
- * Gère la fenêtre système sans bordure, la sécurité et la communication IPC.
+ * Fenêtre système, sécurité (contextIsolation) et IPC.
  */
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const launcherService = require('./launcher-service');
 
 let mainWindow;
+
+function sendLaunchEvent(payload) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('launch-event', payload);
+    }
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 900,
         height: 550,
-        frame: false,          // Fenêtre sans bordures système (look premium custom)
-        transparent: true,     // Support de la transparence et des coins arrondis
-        resizable: false,      // Taille fixe pour garantir l'intégrité du design
-        show: false,           // Masqué au départ pour éviter le flash blanc au chargement
+        frame: false,
+        transparent: true,
+        resizable: false,
+        show: false,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-            devTools: !app.isPackaged  // DevTools UNIQUEMENT en mode développement
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            webSecurity: true,
+            allowRunningInsecureContent: false,
+            devTools: !app.isPackaged
         }
     });
 
-    // Chargement de l'interface graphique
     mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
-    // Affichage propre une fois le contenu chargé — sans console en production
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
-        // DevTools uniquement quand on lance via "npm start" (développement)
         if (!app.isPackaged) {
             mainWindow.webContents.openDevTools({ mode: 'detach' });
         }
@@ -40,7 +48,6 @@ function createWindow() {
     });
 }
 
-// Initialisation de l'application Electron
 app.whenReady().then(() => {
     createWindow();
 
@@ -53,9 +60,6 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// ---------------------------------------------------------
-// REQUÊTES SYSTÈME IPC (Boutons Fermer / Réduire / Cacher)
-// ---------------------------------------------------------
 ipcMain.on('window-close', () => {
     app.quit();
 });
@@ -64,15 +68,55 @@ ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
 });
 
-// Cacher le launcher (quand Minecraft démarre)
-ipcMain.on('window-hide', () => {
-    if (mainWindow) mainWindow.hide();
+ipcMain.handle('get-pokyra-dir', async () => {
+    return launcherService.POKYRA_DIR;
 });
 
-// Réafficher le launcher (si Minecraft se ferme)
-ipcMain.on('window-show', () => {
-    if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
+ipcMain.handle('open-external', async (_event, url) => {
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+        return { success: false, error: 'URL invalide' };
     }
+    await shell.openExternal(url);
+    return { success: true };
+});
+
+ipcMain.handle('open-folder', async (_event, folderPath) => {
+    if (typeof folderPath !== 'string' || folderPath.length === 0) {
+        return { success: false, error: 'Chemin invalide' };
+    }
+    try {
+        launcherService.ensureFolderExists(folderPath);
+        const result = await shell.openPath(folderPath);
+        if (result) {
+            return { success: false, error: result };
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('launch-game', async (_event, options) => {
+    const safeOptions = {
+        username: typeof options?.username === 'string' ? options.username : '',
+        ram: typeof options?.ram === 'string' ? options.ram : '4',
+        schematica: !!options?.schematica,
+        serverEndpoint: typeof options?.serverEndpoint === 'string' ? options.serverEndpoint : '',
+        onEvent: (type, data) => {
+            if (type === 'window-hide') {
+                if (mainWindow) mainWindow.hide();
+                return;
+            }
+            if (type === 'window-show') {
+                if (mainWindow) {
+                    mainWindow.show();
+                    mainWindow.focus();
+                }
+                return;
+            }
+            sendLaunchEvent({ type, ...data });
+        }
+    };
+
+    return launcherService.launchGame(safeOptions);
 });

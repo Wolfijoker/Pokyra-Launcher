@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src https://api.mcsrvstat.us;">
     <title>Pokyra Launcher ⚡</title>
     
     <!-- Polices & Icônes -->
@@ -21,20 +22,7 @@
         <!-- Barre de titre personnalisée déplaçable -->
         <header class="custom-titlebar">
             <div class="titlebar-logo">
-                <svg class="logo-svg" viewBox="0 0 100 100" width="24" height="24">
-                    <defs>
-                        <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="hsl(222, 25%, 16%)" />
-                            <stop offset="100%" stop-color="hsl(222, 30%, 8%)" />
-                        </linearGradient>
-                        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="hsl(38, 92%, 60%)" />
-                            <stop offset="100%" stop-color="hsl(38, 92%, 45%)" />
-                        </linearGradient>
-                    </defs>
-                    <path d="M 50 10 L 80 22 L 75 60 L 50 85 L 25 60 L 20 22 Z" fill="url(#shieldGrad)" stroke="hsl(199, 85%, 48%)" stroke-width="5.5" />
-                    <path d="M 55 22 L 38 50 L 50 50 L 45 70 L 62 42 L 50 42 Z" fill="url(#goldGrad)" />
-                </svg>
+                <img src="../assets/icon-square.png" alt="Pokyra" class="titlebar-logo-img" width="24" height="24">
                 <span class="logo-text"><span class="accent-gold">POK</span>YRA</span>
             </div>
             

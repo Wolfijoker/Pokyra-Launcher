@@ -4,7 +4,10 @@
   "description": "Launcher officiel ultra-premium pour le serveur Pixelmon Pokyra",
   "main": "main.js",
   "scripts": {
+    "prestart": "node scripts/sync-dev-mods.js",
     "start": "electron .",
+    "start:dev": "powershell -ExecutionPolicy Bypass -File ..\\forge_extracted\\compile_pokyraforms.ps1 && node scripts/sync-dev-mods.js && electron .",
+    "sync-mods": "node scripts/sync-dev-mods.js",
     "dist": "electron-builder"
   },
   "keywords": [
@@ -16,6 +19,7 @@
   "author": "Pokyra",
   "license": "ISC",
   "dependencies": {
+    "adm-zip": "^0.4.16",
     "minecraft-launcher-core": "*",
     "msmc": "*"
   },
